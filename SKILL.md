@@ -85,7 +85,7 @@ from naming import (
 
 ## Error Handling Principle
 
-**This skill does NOT apply silent defaults** (with one exception: **extension** silently defaults to `.md` when not configured). For all other required config values, directory mappings, or field resolutions:
+**This skill does NOT apply silent defaults** (with two exceptions: **extension** silently defaults to `.md` when not configured; **type** keeps original/caller-provided type when no match found — no error reported). For all other required config values, directory mappings, or field resolutions:
 1. Stop immediately.
 2. Report a clear `ERROR:` message indicating what is missing.
 3. Prompt the user to configure the relevant entry.

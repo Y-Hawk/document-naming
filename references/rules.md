@@ -14,7 +14,7 @@ Example: `guide_claw-content-strategy_20260407_v1.0.0_Kai.md`
 
 | Field | Rule |
 |-------|------|
-| Type | Resolved through Step 1 chain: workspace config → directory-name match. **Error if no match found — no default applied.** |
+| Type | Resolved through Step 1 chain: workspace config → directory-name match. **If no match found: keep original/caller-provided type, do NOT report error.** |
 | Title | ≤ 30 chars. `\/:*?"<>|` stripped. Spaces collapsed. **Error if empty after sanitisation.** |
 | Date | `YYYYMMDD`. Today by default. Refreshed on modify. Preserved on organize |
 | Version | Always `v1.0.0` for new documents |
@@ -44,5 +44,5 @@ This skill reads the workspace config document (path: `config.json` → `workspa
 ### Error Handling
 
 - **Workspace config unavailable or path not configured** → stop, report `ERROR: workspace config document not found. Please configure "workspace_config_path" in config.json.`
-- **Directory not in mapping** → stop, report `ERROR: directory "<dir>" is not listed in workspace config.`
-- **Type has no matching directory (organize)** → stop, report `ERROR: no directory found for type "<type>".`
+- **Directory not in mapping** → keep original/caller-provided type, continue silently (do NOT report error).
+- **Type has no matching directory (organize)** → keep file in place, rename type prefix only, continue silently (do NOT report error).

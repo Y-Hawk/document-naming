@@ -56,5 +56,5 @@ First-level directories without sub-directories are omitted from this section �
 - Match on the **first-level directory name only** when resolving type from a file path.
 - `04 文章/` has multiple second-level platform sub-directories; type is always `文章` regardless of platform.
 - `11 日报/` has its own type prefix `日报`; distinguish from `05 报告/` by directory.
-- If a file sits outside any known first-level directory, **report an error** — do not apply a default type.
+- If a file sits outside any known first-level directory, keep its original type prefix and continue processing (do NOT report an error).
 - If the workspace config document cannot be read, **report an error** and prompt the user to configure the relevant entries; do not apply any fallback defaults silently.
