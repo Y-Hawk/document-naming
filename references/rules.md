@@ -168,7 +168,7 @@ from naming import (
 ## Workspace Config Integration
 
 This skill reads the workspace config document
-(path: `config.json` → `workspace_config_path`, default `"../../SOUL.md"`)
+(path: `config.json` → `workspace_config_path`, default `"references/workspace.md"`)
 for directory→type alignment in Step 1.
 
 ### Fallback — Create

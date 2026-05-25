@@ -34,7 +34,7 @@ All adjustable values live in **`config.json`**:
 | `default_extension` | `"md"` | Fallback extension |
 | `archive_dir_name` | `"history"` | Sub-directory for archived versions |
 | `workspace_root` | `Desktop/content-creation-expert` | Primary workspace root |
-| `workspace_config_path` | `"../../SOUL.md"` | Relative path to workspace directory→type config document |
+| `workspace_config_path` | `"references/workspace.md"` | Relative path (from skill root) to workspace directory→type config document |
 | `default_save_path` | Same as `workspace_root` | Fallback save location |
 
 Scripts load `config.json` as a secondary fallback; the AI resolves values first.
