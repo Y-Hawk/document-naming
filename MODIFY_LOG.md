@@ -131,3 +131,8 @@
 
 1. 删除SKILL.md和config.json中的默认类型的设置，文件都会根据调用方来获取到类型；
 2. workspace_root的值改为从workspace.md中获取，不需要设置默认配置项了；
+
+## 修改意见二十三
+
+1. Extension，扩展名，如果没有读取到配置默认值，系统静默默认为MarkDown
+2. SKILL.md和rules.md文件中，重复的内容，二者只保留一处理，来避免一处修改，一处未修改导致的冲突

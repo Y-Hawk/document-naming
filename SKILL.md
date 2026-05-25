@@ -25,7 +25,7 @@ Caller must determine:
 
 ## Configuration
 
-All values are read from **`config.json`** at runtime. **No default values are applied by this skill.** If any required key is missing, stop and report an error.
+All values are read from **`config.json`** at runtime. If a required key is missing, stop and report an error. **Exception: extension** silently defaults to `.md`.
 
 | Key | Purpose |
 |-----|---------|
@@ -56,7 +56,7 @@ Each step's full details are in separate reference files — read only the step 
 | Document | Content |
 |----------|---------|
 | [workspace.md](references/workspace.md) | Workspace root, directory→type mapping, sub-directory structure |
-| [rules.md](references/rules.md) | Naming format, field rules, version policy, CLI/API summary |
+| [rules.md](references/rules.md) | Naming format, field definitions, version policy |
 
 ---
 
@@ -85,7 +85,7 @@ from naming import (
 
 ## Error Handling Principle
 
-**This skill does NOT apply silent defaults.** If a required config value, directory mapping, or field resolution fails:
+**This skill does NOT apply silent defaults** (with one exception: **extension** silently defaults to `.md` when not configured). For all other required config values, directory mappings, or field resolutions:
 1. Stop immediately.
 2. Report a clear `ERROR:` message indicating what is missing.
 3. Prompt the user to configure the relevant entry.

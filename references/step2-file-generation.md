@@ -21,7 +21,7 @@ Generates a compliant filename and writes the file to disk. Uses the type from S
 | **date** | `preferred:` caller-provided `--date` override (YYYYMMDD) → `fallback:` today (YYYYMMDD) |
 | **version** | Always `v1.0.0` — hard-coded, no override |
 | **author** | `preferred:` context (SOUL.md / IDENTITY.md) → `fallback:` config.json → `default_author` → `error:` not configured → stop, report error |
-| **extension** | `preferred:` caller-provided extension (leading dot stripped) → `fallback:` config.json → `default_extension` → `error:` not configured → stop, report error |
+| **extension** | `preferred:` caller-provided extension (leading dot stripped) → `fallback:` config.json → `default_extension` → `silent default:` .md |
 
 ### Title Sanitisation (applied by script)
 
