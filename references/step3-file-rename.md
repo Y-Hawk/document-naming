@@ -25,28 +25,28 @@ Type prefix is replaced. Title, date, version, author, extension are **never** c
 **Example — same directory:**
 
 ```
-old: 文章_AI-guide_20260523_v1.0.0_Kai.md   (in 04 文章/)
-new: 指南_AI-guide_20260523_v1.0.0_Kai.md   (stays in 04 文章/, type prefix changed)
-     ^^^^ type changed, everything else preserved
+old: article_AI-guide_20260523_v1.0.0_Kai.md   (in 04 文章/)
+new: guide_AI-guide_20260523_v1.0.0_Kai.md     (stays in 04 文章/, type prefix changed)
+     ^^^^^ type changed, everything else preserved
 ```
 
 **Example — cross-directory move:**
 
 ```
-old: 其它_AI-guide_20260523_v1.0.0_Kai.md   (in 99 其它/)
-new: 指南_AI-guide_20260523_v1.0.0_Kai.md   (moved to 04 文章/, type prefix changed)
-     ^^^^ type changed, file moved to correct directory
+old: other_AI-guide_20260523_v1.0.0_Kai.md     (in 99 其它/)
+new: guide_AI-guide_20260523_v1.0.0_Kai.md     (moved to 04 文章/, type prefix changed)
+     ^^^^^ type changed, file moved to correct directory
 ```
 
 ### 3. Execute
 
 ```bash
 # Same directory — just rename
-mv "文章_AI-guide_20260523_v1.0.0_Kai.md" "指南_AI-guide_20260523_v1.0.0_Kai.md"
+mv "article_AI-guide_20260523_v1.0.0_Kai.md" "guide_AI-guide_20260523_v1.0.0_Kai.md"
 
 # Cross-directory — move then rename
-mv "99 其它/其它_AI-guide_20260523_v1.0.0_Kai.md" \
-   "04 文章/指南_AI-guide_20260523_v1.0.0_Kai.md"
+mv "99 其它/other_AI-guide_20260523_v1.0.0_Kai.md" \
+   "04 文章/guide_AI-guide_20260523_v1.0.0_Kai.md"
 ```
 
 ### Edge Cases

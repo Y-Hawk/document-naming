@@ -37,22 +37,17 @@ Directories are created on demand; only create a directory when a document belon
 ## Sub-directory Structure
 
 Only second-level directories are specified. Lower levels are not constrained by this config.
+First-level directories without sub-directories are omitted from this section — files go directly under them.
 
-| First-level Directory | Second-level Directory | Applicable Condition |
-|-----------------------|------------------------|----------------------|
-| `00 方案/`            | *(none — files go directly under first-level)* | Annual strategy and planning documents |
-| `01 题库/`            | *(none — files go directly under first-level)* | Topic bank entries |
-| `02 草稿/`            | Named by topic or series (e.g. `01 AI的前世今生/`) | Group drafts by topic or series; create sub-dir when ≥ 2 related drafts exist |
-| `03 定稿/`            | *(none — files go directly under first-level)* | Finalised documents |
-| `04 文章/`            | `公众号/` / `头条/` / `小红书/` / `知乎/` | One sub-dir per publishing platform; required before placing any article file |
-| `05 报告/`            | *(none — files go directly under first-level)* | Reports and retrospectives |
-| `06 规范/`            | *(none — files go directly under first-level)* | Specification and standard documents |
-| `07 素材/`            | `配图/` / `AI热点/` | `配图/` for article illustration assets; `AI热点/` for daily hot-topic news feeds |
-| `08 数据/`            | *(none — files go directly under first-level)* | Platform operation data files |
-| `09 记录/`            | *(none — files go directly under first-level)* | Logs and meeting notes |
-| `10 脚本/`            | *(none — files go directly under first-level)* | Scripts and automation code |
-| `11 日报/`            | *(none — files go directly under first-level)* | Daily summary reports |
-| `99 其它/`            | *(none — files go directly under first-level)* | Uncategorised files |
+| Second-level Directory | Applicable Condition |
+|------------------------|----------------------|
+| `02 草稿/` → Named by topic or series (e.g. `01 AI的前世今生/`) | Group drafts by topic or series; create sub-dir when ≥ 2 related drafts exist |
+| `04 文章/` → `公众号/` | WeChat Official Account published posts |
+| `04 文章/` → `头条/` | Toutiao (头条号) published posts |
+| `04 文章/` → `小红书/` | Xiaohongshu (小红书) published notes |
+| `04 文章/` → `知乎/` | Zhihu (知乎) published answers / articles |
+| `07 素材/` → `配图/` | Article illustration assets and images |
+| `07 素材/` → `AI热点/` | Daily AI hot-topic news feeds |
 
 ---
 

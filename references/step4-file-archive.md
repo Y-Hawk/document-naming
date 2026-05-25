@@ -27,15 +27,15 @@ After Step 2 creates the new versioned file, move the old file to the archive su
 
 ```bash
 python scripts/naming.py archive \
-    "<dir>/指南_AI-guide_20260520_v1.0.0_Kai.md"
+    "<dir>/guide_AI-guide_20260520_v1.0.0_Kai.md"
 ```
 
 ## Output
 
 ```json
 {
-  "archived": ".../指南_AI-guide_20260520_v1.0.0_Kai.md",
-  "to": ".../history/指南_AI-guide_20260520_v1.0.0_Kai.md"
+  "archived": ".../guide_AI-guide_20260520_v1.0.0_Kai.md",
+  "to": ".../history/guide_AI-guide_20260520_v1.0.0_Kai.md"
 }
 ```
 

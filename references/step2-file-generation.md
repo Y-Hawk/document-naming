@@ -34,15 +34,15 @@ Generates a compliant filename and writes the file to disk. Uses the type from S
 
 ```bash
 python scripts/naming.py generate "origins-of-AI" "md" \
-    --type "指南" --author "Kai"
+    --type "guide" --author "Kai"
 ```
 
 ### Output
 
 ```json
 {
-  "name": "指南_origins-of-AI_20260523_v1.0.0_Kai.md",
-  "type": "指南",
+  "name": "guide_origins-of-AI_20260523_v1.0.0_Kai.md",
+  "type": "guide",
   "title": "origins-of-AI",
   "date": "20260523",
   "version": "v1.0.0",
@@ -54,7 +54,7 @@ python scripts/naming.py generate "origins-of-AI" "md" \
 ### Write the File
 
 ```bash
-cat > "<save_path>/指南_origins-of-AI_20260523_v1.0.0_Kai.md" << 'EOF'
+cat > "<save_path>/guide_origins-of-AI_20260523_v1.0.0_Kai.md" << 'EOF'
 <document content>
 EOF
 ```
@@ -83,15 +83,15 @@ Bumps the version and date from an existing compliant filename, then creates a n
 ### Run the Script
 
 ```bash
-python scripts/naming.py bump "指南_AI-guide_20260520_v1.0.0_Kai.md" minor
+python scripts/naming.py bump "guide_AI-guide_20260520_v1.0.0_Kai.md" minor
 ```
 
 ### Output
 
 ```json
 {
-  "old_name": "指南_AI-guide_20260520_v1.0.0_Kai.md",
-  "new_name": "指南_AI-guide_20260523_v1.1.0_Kai.md",
+  "old_name": "guide_AI-guide_20260520_v1.0.0_Kai.md",
+  "new_name": "guide_AI-guide_20260523_v1.1.0_Kai.md",
   "old_version": "v1.0.0",
   "new_version": "v1.1.0"
 }
@@ -100,7 +100,7 @@ python scripts/naming.py bump "指南_AI-guide_20260520_v1.0.0_Kai.md" minor
 ### Write the New File
 
 ```bash
-cat > "<dir>/指南_AI-guide_20260523_v1.1.0_Kai.md" << 'EOF'
+cat > "<dir>/guide_AI-guide_20260523_v1.1.0_Kai.md" << 'EOF'
 <modified document content>
 EOF
 ```

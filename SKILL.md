@@ -8,7 +8,7 @@ version: "V5.0.0"
 
 **Rule**: `Type_Title_YYYYMMDD_v1.0.0_Author.ext`
 
-**Example**: `指南_origins-of-AI_20260523_v1.0.0_Kai.md`
+**Example**: `guide_origins-of-AI_20260523_v1.0.0_Kai.md`
 
 ---
 
@@ -19,7 +19,7 @@ Caller must determine:
 | Prerequisite | Applies to | Description |
 |-------------|------------|-------------|
 | **operation type** | `create`, `modify`, `organize` | One of `create`, `modify`, or `organize` — inferred from user prompt. |
-| **document type (default)** | `create` only | Suggested type prefix (e.g. `指南`, `方案`). Step 1 may override it. Not needed for `modify`/`organize`. |
+| **document type** | `create`, `organize` | Type prefix provided by the caller. Step 1 resolves it against the workspace directory mapping. |
 
 ---
 
@@ -30,12 +30,9 @@ All values are read from **`config.json`** at runtime. **No default values are a
 | Key | Purpose |
 |-----|---------|
 | `default_author` | Author name used when not available from context |
-| `default_type` | *(no longer used — config errors instead)* |
 | `default_extension` | Extension used when caller does not provide one |
 | `archive_dir_name` | Sub-directory name for archived versions |
-| `workspace_root` | Primary workspace root path |
-| `workspace_config_path` | Relative path (from skill root) to workspace directory→type config document |
-| `default_save_path` | Fallback save location |
+| `workspace_config_path` | Relative path (from skill root) to the workspace config document — provides workspace root, directory→type mapping, and sub-directory structure |
 
 **Scripts load `config.json` as a secondary fallback; the AI resolves values first. If a value cannot be resolved from any source, stop and report an error.**
 

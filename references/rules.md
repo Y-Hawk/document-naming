@@ -6,7 +6,7 @@
 Type_Title_YYYYMMDD_v1.0.0_Author.ext
 ```
 
-Example: `方案_claw-content-strategy_20260407_v1.0.0_Kai.md`
+Example: `guide_claw-content-strategy_20260407_v1.0.0_Kai.md`
 
 ---
 
@@ -17,7 +17,7 @@ The caller must provide:
 | Prerequisite | Applies to | Description |
 |-------------|------------|-------------|
 | **operation type** | create, modify, organize | `create` / `modify` / `organize` — determined from the user's prompt |
-| **document type (default)** | create only | Suggested type prefix (e.g. `指南`, `方案`). This is a starting point — Step 1 may override it. Not needed for modify or organize. |
+| **document type** | create, organize | Type prefix provided by the caller. Step 1 resolves it against the workspace directory mapping. |
 
 ---
 
