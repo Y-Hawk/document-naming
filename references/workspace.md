@@ -40,11 +40,9 @@ First-level directories without sub-directories are omitted from this section �
 
 | Second-level Directory                                          | Applicable Condition                                                          |
 | --------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `02 草稿/` → Named by topic or series (e.g. `01 AI的前世今生/`) | Group drafts by topic or series; create sub-dir when ≥ 2 related drafts exist |
-| `04 文章/` → `公众号/`                                          | WeChat Official Account published posts                                       |
-| `04 文章/` → `头条/`                                            | Toutiao (头条号) published posts                                              |
-| `04 文章/` → `小红书/`                                          | Xiaohongshu (小红书) published notes                                          |
-| `04 文章/` → `知乎/`                                            | Zhihu (知乎) published answers / articles                                     |
+| `02 草稿/` → `<topic>/`                                            | Group drafts by topic or series (e.g. `01 AI的前世今生/`); create sub-dir when ≥ 2 related drafts exist |
+| `03 定稿/` → `<topic>/`                                            | Group finalised documents by topic or series; create sub-dir when ≥ 2 related final docs exist |
+| `04 文章/` → `<platform>/`                                        | Group by publishing platform (公众号 / 头条 / 小红书 / 知乎); create sub-dir per platform |
 | `07 素材/` → `配图/`                                            | Article illustration assets and images                                        |
 | `07 素材/` → `AI热点/`                                          | Daily AI hot-topic news feeds                                                 |
 

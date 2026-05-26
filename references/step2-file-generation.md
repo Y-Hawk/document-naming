@@ -2,105 +2,63 @@
 
 **Applies to: `create` and `modify`.**
 
-Generates a compliant filename and writes the file to disk. Uses the type from Step 1.
-
-**Prerequisites**:
-* All required config values must be present in `config.json`. If any is missing, **stop and report an error** — do not apply any default value silently.
-  > `ERROR: missing config key "<key>" in config.json. Please configure it before proceeding.`
+Generates a compliant filename, resolves the save path, and writes the file. Uses the type from Step 1.
 
 ---
 
-## Create — Generate Compliant Filename
+## Create — Filename
 
 ### Field Resolution
 
 | Field | Resolution Chain |
 |-------|-----------------|
-| **type** | `preferred:` Step 1 resolved type → `error:` not resolved → stop |
-| **title** | `preferred:` caller-provided title (sanitised: illegal chars stripped, ≤ 30 chars, spaces collapsed) → `error:` empty after sanitisation → stop, report error |
-| **date** | `preferred:` caller-provided `--date` override (YYYYMMDD) → `fallback:` today (YYYYMMDD) |
-| **version** | Always `v1.0.0` — hard-coded, no override |
-| **author** | `preferred:` context (SOUL.md / IDENTITY.md) → `fallback:` config.json → `default_author` → `error:` not configured → stop, report error |
-| **extension** | `preferred:` caller-provided extension (leading dot stripped) → `fallback:` config.json → `default_extension` → `silent default:` .md |
+| **type** | Step 1 resolved type. Not resolved → stop, report error |
+| **title** | Caller-provided title → sanitise (strip `\ / : * ? " < > \|`, collapse whitespace, truncate to 30 chars). Empty after sanitisation → stop, report error |
+| **date** | Caller `--date` override (YYYYMMDD) → today |
+| **version** | `v1.0.0`. Append `.final` if caller says final/approved, `.refer` if reference/backup |
+| **author** | SOUL.md / IDENTITY.md → config.json `default_author`. Not configured → stop, report error |
+| **extension** | Caller-provided (leading dot stripped) → config.json `default_extension` → `.md` |
 
-### Title Sanitisation (applied by script)
+---
 
-* Strips `\`, `/`, `:`, `*`, `?`, `"`, `<`, `>`, `|` (illegal on Windows)
-* Trims leading/trailing whitespace, collapses spaces (no separator)
-* Truncates to **30 chars**
-* **If empty after sanitisation** → stop, report error (no "untitled" fallback)
+## Create — Save Path
 
-### Run the Script
+### Level 1 Directory
 
-```bash
-python scripts/naming.py generate "origins-of-AI" "md" \
-    --type "guide" --author "Kai"
-```
+| Case | Action |
+|------|--------|
+| Type matched a standard directory | Use mapped L1 path from workspace config |
+| Type has no match | `99 <type>/`; create if missing |
 
-### Output
+### Level 2 Sub-Directory
 
-```json
-{
-  "name": "guide_origins-of-AI_20260523_v1.0.0_Kai.md",
-  "type": "guide",
-  "title": "origins-of-AI",
-  "date": "20260523",
-  "version": "v1.0.0",
-  "author": "Kai",
-  "ext": "md"
-}
-```
+Resolved from the workspace config document's sub-directory rules for the matched type.
 
-### Write the File
+If no sub-directory rule matches:
+1. Auto-generate a meaningful L2 name from the document topic or content
+2. Create it under the matched L1 directory
+3. Append the new sub-directory entry to the workspace config document
 
-```bash
-cat > "<save_path>/guide_origins-of-AI_20260523_v1.0.0_Kai.md" << 'EOF'
-<document content>
-EOF
-```
+---
+
+## Create — Write
+
+Write the generated filename to the resolved save path with the document content.
 
 ---
 
 ## Modify — Version Bump
 
-Bumps the version and date from an existing compliant filename, then creates a new file with modified content. The old file is preserved for Step 4 archiving.
+Bump version and date from an existing compliant filename; create a **new file** with modified content in the same directory. The original file is preserved for archiving (Step 3).
 
-### Internal Process
+### Process
 
-1. Parse filename against `^([^_]+)_(.+)_(\d{8})_v(\d+\.\d+\.\d+)_(\w+)\.(\w+)$`.
-2. Increment version: `major` → X+1.0.0, `minor` → X.Y+1.0, `patch` → X.Y.Z+1.
-3. Refresh date to today (`YYYYMMDD`).
-4. Reconstruct new filename — replace old version and date; title, type, author, extension stay.
+1. Parse: `^([^_]+)_(.+)_(\d{8})_v(\d+\.\d+\.\d+)(\.(final|refer))?_(\w+)\.(\w+)$`
+2. Increment: `major` → X+1.0.0 / `minor` → X.Y+1.0 / `patch` → X.Y.Z+1
+3. Append `.final` or `.refer` suffix if caller specifies
+4. Refresh date to today
+5. Reconstruct — only version, date, suffix change; title, type, author, extension stay
 
-### Bump Levels
+### Write
 
-| Level | When to use | Version | Date |
-|-------|-------------|---------|------|
-| `major` | Full restructure of topic / content / framework | X+1.0.0 | today |
-| `minor` | Content revisions — additions, deletions, changes | X.Y+1.0 | today |
-| `patch` | Format fixes, grammar, typo corrections | X.Y.Z+1 | today |
-
-### Run the Script
-
-```bash
-python scripts/naming.py bump "guide_AI-guide_20260520_v1.0.0_Kai.md" minor
-```
-
-### Output
-
-```json
-{
-  "old_name": "guide_AI-guide_20260520_v1.0.0_Kai.md",
-  "new_name": "guide_AI-guide_20260523_v1.1.0_Kai.md",
-  "old_version": "v1.0.0",
-  "new_version": "v1.1.0"
-}
-```
-
-### Write the New File
-
-```bash
-cat > "<dir>/guide_AI-guide_20260523_v1.1.0_Kai.md" << 'EOF'
-<modified document content>
-EOF
-```
+New file written to the **same directory** as the original.
