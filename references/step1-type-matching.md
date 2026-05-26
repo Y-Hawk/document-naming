@@ -1,27 +1,23 @@
 # Step 1 — Type Matching
 
-**Applies to: `create` and `organize`.**
+**Applies to: `create`.**
+
+Resolves the type prefix to use in the filename. Reads workspace config for directory→type mapping.
 
 ---
 
 ## Prerequisite
 
-Read the workspace config document at the path specified in `config.json` → `workspace_config_path`.
-
-If the config document cannot be read or the path is not configured, stop and report:
-
-> `ERROR: workspace config document not found. Please configure "workspace_config_path" in config.json and ensure the file exists.`
+Read `config.json` → `workspace_config_path` for the workspace config document. If unavailable, warn and continue — skill remains operational with `config.json` defaults. See [SKILL.md](../SKILL.md) → Configuration for fallback rules.
 
 ---
 
 ## Type Resolution
 
-Determine the type prefix to use in the filename.
-
 | Scenario | Action |
 |----------|--------|
-| Caller provides a type, fuzzy-matches a standard type | Normalize to the standard type |
-| Caller provides a type, unlike any standard type | Keep caller type as-is |
-| Caller provides no type | Use `fallback_directory` from config.json; if not configured, default to `"other"` |
+| Caller provides a type, and it matches a known type from workspace config | Normalize to the matched type |
+| Caller provides a type, but it does not match any known type | Keep caller type as-is (do NOT error) |
+| Caller provides no type | Use `fallback_dir_name` from workspace config (default `"other"`) |
 
-*Fuzzy-match examples: `guide` ~ `Plan`, `post` ~ `Article`, `report` ~ `Report` → normalize. `music`, `xyz123` → keep as-is.*
+The resolved type is passed to Step 2 for L1 directory mapping and filename generation.

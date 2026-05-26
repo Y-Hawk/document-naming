@@ -167,14 +167,14 @@
 ## 修改意见三十
 
 1. step1-type-matching.md,全文保持英文
-2. 完全没匹配的类型，按配置的默认fallback_directory，配置中只要名称就可以，不需要目录符；强调默认目录要保存在工作空间根目录下，序号默认99；如果根目录没有，就自动创建；
+2. 完全没匹配的类型，按配置的默认fallback_dir_name，配置中只要名称就可以，不需要目录符；强调默认目录要保存在工作空间根目录下，序号默认99；如果根目录没有，就自动创建；
 3. 文件保存路径，一级目录根据匹配的类型来，二级目录根据匹配workspace.md二级目录保存，如果匹配不上，根据内容自动生成二级目录保存，同时更新到workspace.md文件
 4. 整个SKILL.md，workspace.md文件名，不要写死，根据目录自动匹配；
 
 ## 修改意见三十一
 
-1. step1-type-matching.md，21行，描述有误，不是使用默认type"other"，而是type先匹配fallback_directory，名称，如果匹配不到，再默认为other；
-2. 如果fallback_directory没有匹配到，默认值为other，默认序号还是99
+1. step1-type-matching.md，21行，描述有误，不是使用默认type"other"，而是type先匹配fallback_dir_name，名称，如果匹配不到，再默认为other；
+2. 如果fallback_dir_name没有匹配到，默认值为other，默认序号还是99
 
 ## 修改意见三十二
 
@@ -208,3 +208,112 @@
 
 1. step4-file-archive.md，改为step3-file-archive.md
 2. 删除全部organize相关的内容及文件，这一块考虑拆分为独立的技能
+
+## 修改意见三十九
+
+1. 将archive_dir_name和fallback_dir_name两个配置项，整理到workspace.md中，并修改技能中相关的内容
+2. workspace.md不要硬编码
+3. archive_dir_name和fallback_dir_name从config.json中移除
+
+## 修改意见四十
+
+1. config.json中的workspace_root，改为“default_workspace_root"，对应的规则workspace_root优先读取workspace_config_path下的文件中的，读取不到再配置中的配置默认值，如果还是读取不到就报错；
+2. workspace_root，在workspace中，添加为根目录配置项
+
+## 修改意见四十一
+
+1. rules.md中，整理（Organize）操作类型相关的内容没有清除干净，检查并清除；
+2. rules.md中，workspace_config_path没有配置，不报错，只警告并提示风险，不影响项目技能正常运行
+3. config.json中，如果default_workspace_root没有配置，不报错，优先保存到桌面，如果查询不到桌面，根据调用方判断需要保存的目录，静默执行
+
+## 修改意见四十二
+
+1. step1-type-matching.md中，Prerequisite段落内容，根据rules.md中最新调整的规则进行调整；
+
+## 修改意见四十三
+
+1. step2-fiel-generation.md中，31行，类型需要根据workspace中的配置进行匹配目录；
+
+## 修改意见四十四
+
+1. step3-file-archive.md中，workspace.md不要更编码；
+2. step3-file-archive.md中，整个内容进行优化，使逻辑更清晰（消除前后矛盾，重复描述，删除冗余）
+
+## 修改意见四十五
+
+1. step3-file-archive.md，新增规则，如果suffix为refer时，从workspace.md中读取保存目录配置（新增refer-directory配置，用于保存待评估参考文档），当前文件目录如果存在则直接移入，如果不存在则创建并移入，如果没有匹配到配置，默认创建目录'refer'
+
+## 修改意见四十六
+
+1. refer_dir_name全部更新为refer_dir_name
+2. fallback_dir_name全部更新为fallback_dir_name
+
+## 修改意见四十七
+
+1. 对整个技能进行完善优化，使各个文档，各个文档之间，逻辑更清晰（消除前后矛盾，重复描述，删除冗余），除MODIFY_LOG.md文档
+2. 对脚本根据各个配置文档最新的内容，进行重构优化，使代码更简洁高效，同时保持完整清晰的代码注释
+
+## 修改意见四十八
+
+1. SKILL.md和rules.md、step2，关于标题的Format只保留一份，否则会存在维护冲突问题；
+2. SKILL.md,26行，优先按调用者指定的目录，如果没有指定，再保存到桌面，如果匹配不到桌面，根据上下文或系统匹配一个目录进行保存。
+3. 整个技能中，workspace.md不要硬编码；
+4. rules.md,23行、55行，不刷新历史版本日期，新版本或新建文档，都按当前日期即可；
+
+## 修改意见四十九
+
+1. SKILL.md，description中增加可能的触发关键词（修改、调整、编辑、新建、生成、创建、添加）
+
+## 修改意见五十
+
+1. SKILL.md，description中增加可触发技能的文件类型.md/幻灯片相关格式/表格相关格式/文档相关格式/图片相关格式/视频相关格式/音频相关格式
+
+## 修改意见五十一
+
+1. naming.py，关于标题的Format,写明引用rules.md,不要硬编码；
+2. naming.py，workspace.md不要硬编码；
+
+**变更清单**：
+
+**第1点**（organize 残留清除 — `references/rules.md`）：
+
+- `## Fields` 表 Date 行：删除 `Preserved on organize`
+- `### Mode-Specific Behaviour`：删除整行 `- **Organize**: version and date preserved (no bump, no refresh), including suffix.`
+- `### Error Handling`：删除 `- **Type mismatch with directory (organize)** → auto-change type prefix to match the directory, rename file, continue silently`
+
+**第2点**（workspace_config_path → 警告）：
+
+- `references/rules.md` Error Handling：`stop, report ERROR` → `warn: WARNING... Continue normally — skill remains operational with config.json defaults`
+- `references/workspace.md`：
+  - `## Configuration` 节末尾：`halt with an error` → `emit a warning and continue with the nearest safe fallback. Do NOT halt`
+  - `## Notes` Config sourcing：`report an error — do not apply silent fallbacks` → `emit a warning and continue — do not halt the skill. Skill-level defaults from config.json remain in effect`
+- `SKILL.md` Resolution rules：`halt with error. No silent fallback` → `emit warning, continue with available defaults. Never halt`
+
+**第3点**（default_workspace_root → 静默 Desktop）：
+
+- `references/workspace.md` Workspace Root 第3步：`stop and report error` → `silently fall back to the user's Desktop directory. If Desktop cannot be determined, defer to the caller to decide — do NOT report an error`
+- `SKILL.md` Resolution rules：`then error` → `then Desktop (silent). If Desktop unavailable, caller decides — never error`
+- `scripts/naming.py` `_load_config` docstring：`None — caller is responsible for reporting the error` → `Desktop (silent) → caller-decided directory (silent)`
+
+---
+
+## 修改意见四十（补充）：SKILL.md + workspace.md 整体优化
+
+消除前后矛盾、重复描述、删除冗余，使逻辑更清晰。
+
+**SKILL.md**（93→72 行，−23%）：
+
+- 删除 Prerequisites 节（operation/document type 已在 Workflow 表 Applies to 列覆盖）
+- Configuration 合并为一个 Sources 表 + 统一 Resolution rules 列表（原分三段：config.json 表 / Workspace-level 行 / Scripts 行）
+- 删除顶部简化命名示例（与 rules.md 冲突，直接指向 rules.md）
+- 删除 Error Handling 节（规则并入 Configuration resolution rules）
+- Reference Documents 删除 Workspace Config 行（已在 Configuration 覆盖）
+
+**workspace.md**（79→77 行）：
+
+- 副标题扩展为 4 项内容（root path / mapping / sub-directory / config values）
+- Directory→Type intro 合并 "Directories are created on demand" 到同一句
+- Sub-directory intro 合并两句为一句
+- Configuration 表：`archive_dir_name` 描述删除自相矛盾的 "未配置则报错"（已有默认值 `"history"`），统一使用 "created automatically if missing"；`workspace_root` Default 列 `_(from config.json)_` → `—`
+- 删除原 Details 段落（表内已含足够信息）
+- Notes 重组为 Type resolution（3 条）+ Config sourcing（1 条）；删除与映射表重复的第 74 行、删除自动追加说明（`<topic>` 占位符已覆盖）

@@ -1,53 +1,46 @@
 ---
-name: workspace-management
-description: "Daily workspace file management — covers workspace root and first-level directory management, sub-directory conventions, and file naming standards."
-version: "V5.0.0"
+name: document-naming
+description: "Document naming, file generation, version management and archiving — covers type matching, filename generation, version bumping and old-version archiving. Triggers: modify, adjust, edit, create, generate, add. File types: .md | .pptx .ppt | .xlsx .xls .csv .tsv | .docx .doc .pdf .txt | .png .jpg .jpeg .gif .svg .webp | .mp4 .mov .avi .webm | .mp3 .wav .ogg .flac."
+version: "V5.1.0"
 ---
 
-# Workspace Management
+# Document Naming
 
-**Rule**: `Type_Title_YYYYMMDD_v1.0.0_Author.ext`
-
-**Example**: `guide_origins-of-AI_20260523_v1.0.0_Kai.md`
-
----
-
-## Prerequisites
-
-Caller must determine:
-
-| Prerequisite | Applies to | Description |
-|-------------|------------|-------------|
-| **operation type** | `create`, `modify`, `organize` | One of `create`, `modify`, or `organize` — inferred from user prompt. |
-| **document type** | `create`, `organize` | Type prefix provided by the caller. Step 1 resolves it against the workspace directory mapping. |
+Generates and manages compliant filenames. Full format spec: [rules.md](references/rules.md).
 
 ---
 
 ## Configuration
 
-All values are read from **`config.json`** at runtime. If a required key is missing, stop and report an error. **Exception: extension** silently defaults to `.md`.
+Runtime values are merged from two sources at startup. Neither source failing will halt the skill.
 
-| Key | Purpose |
-|-----|---------|
-| `default_author` | Author name used when not available from context |
-| `default_extension` | Extension used when caller does not provide one |
-| `archive_dir_name` | Sub-directory name for archived versions |
-| `workspace_config_path` | Relative path (from skill root) to the workspace config document — provides workspace root, directory→type mapping, and sub-directory structure |
+| Source | File | Provides |
+|--------|------|----------|
+| **Skill config** | `config.json` | `default_author`, `default_extension`, `default_workspace_root`, `workspace_config_path` |
+| **Workspace config** | (path from `workspace_config_path`) | `workspace_root`, `archive_dir_name`, `refer_dir_name`, `fallback_dir_name`; directory→type mapping |
 
-**Scripts load `config.json` as a secondary fallback; the AI resolves values first. If a value cannot be resolved from any source, stop and report an error.**
+**Fallback chain** (all soft — never halt):
+
+| Config Key | Priority |
+|------------|----------|
+| `workspace_root` | caller-specified → Desktop → context/system-matched directory |
+| `archive_dir_name` | workspace config → `"history"` |
+| `refer_dir_name` | workspace config → `"refer"` |
+| `fallback_dir_name` | workspace config → `"other"` |
+| `default_author` | `config.json` → `"Unknown"` |
+| `default_extension` | `config.json` → `.md` (silent) |
+
+If either config file is unreadable, emit warning and continue with defaults. Scripts follow the same logic (`naming.py` → `_load_config`).
 
 ---
 
-## 4-Step Workflow
-
-Each step's full details are in separate reference files — read only the step needed:
+## 3-Step Workflow
 
 | Step | Applies to | Reference |
 |------|-----------|-----------|
-| **Step 1 — Type Matching** | `create`, `organize` | [step1-type-matching.md](references/step1-type-matching.md) |
+| **Step 1 — Type Matching** | `create` | [step1-type-matching.md](references/step1-type-matching.md) |
 | **Step 2 — File Generation** | `create`, `modify` | [step2-file-generation.md](references/step2-file-generation.md) |
-| **Step 3 — File Rename** | `organize` | [step3-file-rename.md](references/step3-file-rename.md) |
-| **Step 4 — File Archive** | `modify` | [step4-file-archive.md](references/step4-file-archive.md) |
+| **Step 3 — File Archive** | `modify` | [step3-file-archive.md](references/step3-file-archive.md) |
 
 ---
 
@@ -55,37 +48,23 @@ Each step's full details are in separate reference files — read only the step 
 
 | Document | Content |
 |----------|---------|
-| Workspace Config | Workspace root, directory→type mapping, sub-directory structure (path from `config.json` → `workspace_config_path`) |
 | [rules.md](references/rules.md) | Naming format, field definitions, version policy |
+| Workspace config | Workspace root, directory→type mapping, sub-directory structure, configuration. Path from `config.json` → `workspace_config_path` |
 
 ---
 
 ## CLI Commands
 
-| Command | Usage | Step |
-|---------|-------|------|
-| `generate` | `naming.py generate <title> <ext> --type <type> --author <author> [--date YYYYMMDD]` | Step 2 |
-| `bump` | `naming.py bump <filename> <major\|minor\|patch>` | Step 2 |
-| `archive` | `naming.py archive <file_path>` | Step 4 |
+```bash
+python scripts/naming.py generate <title> <ext> --type <type> --author <author> [--date YYYYMMDD] [--suffix final|refer]
+python scripts/naming.py bump <filename> <major|minor|patch>
+python scripts/naming.py archive <file_path>
+```
 
 ---
 
 ## Python API
 
 ```python
-from naming import (
-    generate_name,       # Step 2 — compliant filename for new document
-    bump_version,        # Step 2 — version bump + date refresh for modify
-    archive_old_version, # Step 4 — move file to archive sub-directory
-    parse_filename,      # parse compliant filename to dict or None
-)
+from naming import generate_name, bump_version, archive_old_version, parse_filename
 ```
-
----
-
-## Error Handling Principle
-
-**This skill does NOT apply silent defaults** (with two exceptions: **extension** silently defaults to `.md` when not configured; **type** keeps original/caller-provided type when no match found — no error reported). For all other required config values, directory mappings, or field resolutions:
-1. Stop immediately.
-2. Report a clear `ERROR:` message indicating what is missing.
-3. Prompt the user to configure the relevant entry.

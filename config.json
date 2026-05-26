@@ -1,7 +1,6 @@
 {
   "default_author": "Kai",
   "default_extension": "md",
-  "archive_dir_name": "history",
-  "workspace_config_path": "references/workspace.md",
-  "fallback_directory": "other"
+  "default_workspace_root": "C:/Users/admin.DESKTOP-FETRK5E/Desktop/内容创作专家",
+  "workspace_config_path": "references/workspace.md"
 }
