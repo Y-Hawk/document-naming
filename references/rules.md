@@ -39,7 +39,7 @@ Example: `guide_claw-content-strategy_20260407_v1.0.0_Kai.md`
 
 ## Workspace Config Integration
 
-This skill reads the workspace config document (path: `config.json` → `workspace_config_path`) for directory→type mapping in Step 1. The mapping is defined in `references/workspace.md`.
+This skill reads the workspace config document (path: `config.json` → `workspace_config_path`) for directory→type mapping in Step 1.
 
 ### Error Handling
 

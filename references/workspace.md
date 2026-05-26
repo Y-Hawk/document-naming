@@ -30,7 +30,6 @@ Directories are created on demand; only create a directory when a document belon
 | `09 记录/`            | `记录`      | Logs and meeting notes                          |
 | `10 脚本/`            | `脚本`      | Code and automation scripts                     |
 | `11 日报/`            | `日报`      | Daily reports and work summaries                |
-| `99 其它/`            | `其它`      | Files that don't fit any category above         |
 
 ---
 
@@ -58,3 +57,4 @@ First-level directories without sub-directories are omitted from this section �
 - `11 日报/` has its own type prefix `日报`; distinguish from `05 报告/` by directory.
 - If a file sits outside any known first-level directory, keep its original type prefix and continue processing (do NOT report an error).
 - If the workspace config document cannot be read, **report an error** and prompt the user to configure the relevant entries; do not apply any fallback defaults silently.
+- **Sub-directory entries may be auto-appended** to the table above when the type-matching step creates a new level-2 directory not yet listed here. This ensures future files of the same category are placed correctly without manual config updates.

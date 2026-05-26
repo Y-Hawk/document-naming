@@ -55,7 +55,7 @@ Each step's full details are in separate reference files — read only the step 
 
 | Document | Content |
 |----------|---------|
-| [workspace.md](references/workspace.md) | Workspace root, directory→type mapping, sub-directory structure |
+| Workspace Config | Workspace root, directory→type mapping, sub-directory structure (path from `config.json` → `workspace_config_path`) |
 | [rules.md](references/rules.md) | Naming format, field definitions, version policy |
 
 ---

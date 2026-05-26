@@ -141,3 +141,45 @@
 
 1. SKILL.md,37行的"the AI”以为调用方，如果AI自动调用，那AI提供，如果手动调用，那就手动调用者提供；
 2. SKILL.md 9~11和内容和rules.md中还有存在重复，保留rules.md中的
+
+## 修改意见二十五
+
+1. step1-type-matching.md中，类型解析，解析为与workspace.md类似，或是类型子集的，都调整为对应的类型，除非是与配置中的类型，完全不符合的，保留默认或原来类型，不报错。
+
+## 修改意见二十六
+
+1. step1-type-matching.md，57行以后的内容不需要，改为强制要求调用方案按照workspace.md中的类型进行匹配，匹配不到，再自行命名的逻辑。
+
+## 修改意见二十七
+
+1. step1-type-matching.md，type给默认值，如果配置里没有默认值，就静默给“other”
+
+## 修改意见二十八
+
+1. step1-type-matching.md，type给默认值，如果配置里没有默认值，就静默给“other”，不匹配workspace.md
+2. 删除workspace.md，其它目录
+
+## 修改意见二十九
+
+1. 新增配置项，未匹配类型保存目录，step1-type-matching.md中最终完全没有目录的，匹配这个配置项。
+2. caller不是必须匹配workspace.md中的类型，是优先匹配这里的类型（模糊匹配，只要像是这个类型，就按这个类型，完全不像就保存调用者提供的），如果匹配不到，调用者也没给到，再静默按配置项的来。
+
+## 修改意见三十
+
+1. step1-type-matching.md,全文保持英文
+2. 完全没匹配的类型，按配置的默认fallback_directory，配置中只要名称就可以，不需要目录符；强调默认目录要保存在工作空间根目录下，序号默认99；如果根目录没有，就自动创建；
+3. 文件保存路径，一级目录根据匹配的类型来，二级目录根据匹配workspace.md二级目录保存，如果匹配不上，根据内容自动生成二级目录保存，同时更新到workspace.md文件
+4. 整个SKILL.md，workspace.md文件名，不要写死，根据目录自动匹配；
+
+## 修改意见三十一
+
+1. step1-type-matching.md，21行，描述有误，不是使用默认type"other"，而是type先匹配fallback_directory，名称，如果匹配不到，再默认为other；
+2. 如果fallback_directory没有匹配到，默认值为other，默认序号还是99
+
+## 修改意见三十二
+
+1. step1-type-matching.md，50和59行，补充匹配不到二级，可以自行创建二级目录，根据Two-Level Directory Structure一段的规则
+
+## 修改意见三十三
+
+1. step1-type-matching.md，整个内容进行优化，使逻辑更清晰（消除前后矛盾，重复描述，删除冗余）
