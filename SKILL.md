@@ -1,7 +1,7 @@
 ---
 name: document-naming
-description: "Document naming, file generation, version management and archiving — covers type matching, filename generation, version bumping and old-version archiving. Triggers: modify, adjust, edit, create, generate, add, split. File types: .md | .pptx .ppt | .xlsx .xls .csv .tsv | .docx .doc .pdf .txt | .png .jpg .jpeg .gif .svg .webp | .mp4 .mov .avi .webm | .mp3 .wav .ogg .flac."
-version: "V1.0.1"
+description: "Document naming, file generation, version management and archiving — covers type matching, filename generation, version bumping and old-version archiving. Triggers: modify, adjust, edit, create, generate, add, split, optimize, refine, output. File types: .md | .pptx .ppt | .xlsx .xls .csv .tsv | .docx .doc .pdf .txt | .png .jpg .jpeg .gif .svg .webp | .mp4 .mov .avi .webm | .mp3 .wav .ogg .flac."
+version: "V1.0.2"
 ---
 
 # Document Naming
