@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Document naming tool — generate, bump, and archive compliant filenames.
+"""Document naming tool — generate, bump, and archive compliant filenames.
 
 Format: see references/rules.md
 
@@ -19,88 +18,130 @@ from pathlib import Path
 
 
 # =============================================================================
-#  Configuration loading
+#  Configuration
 # =============================================================================
-# Config is loaded once at import time from two sources:
-#   1. config.json (skill-level defaults)
-#   2. workspace config Configuration table (workspace-level overrides)
-#
-# workspace_root resolution: caller-specified → Desktop → context/system-matched directory
+
+def _skill_root() -> Path:
+    """Resolve skill root directory (parent of scripts/)."""
+    return Path(__file__).resolve().parent.parent
+
+_SKILL_ROOT = _skill_root()
+
+# Scalar keys in workspace dict — flattened to top level
+_WS_KEYS = {"workspace_root", "archive_dir_name", "refer_dir_name", "fallback_dir_name"}
+# Note: directory_tree is also extracted from workspace dict/file but handled separately
+# (it's a nested structure, not a scalar value). See _load_config() for details.
 
 
-def _load_config() -> dict:
-    """Load and merge config.json + workspace config Configuration.
-
-    Returns merged dict, or empty dict if both sources are unreadable.
-    Never raises — all errors are silently swallowed.
-    """
-    # ---- Load config.json ----
-    candidates = [
-        Path(__file__).resolve().parent.parent / "config.json",
-        Path.cwd() / "config.json",
-    ]
-    cfg = {}
-    for p in candidates:
-        if p.exists():
-            try:
-                with open(p, "r", encoding="utf-8") as f:
-                    cfg = json.load(f)
-                break
-            except (json.JSONDecodeError, OSError):
-                pass
-
-    if not cfg:
-        return cfg
-
-    # ---- Merge workspace config Configuration section ----
-    _merge_workspace_config(cfg)
-
-    # ---- workspace_root: caller-specified → Desktop → context/system ----
-    # _load_config only merges what's available; runtime priority is evaluated by caller
-
-    return cfg
+def _read_json(path: Path) -> dict:
+    """Read a JSON file; return empty dict on any error."""
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
 
 
-def _merge_workspace_config(cfg: dict) -> None:
-    """Parse workspace config ``## Configuration`` table and merge into *cfg*.
+def _parse_workspace_file(cfg: dict) -> dict:
+    """Parse workspace config file and return extracted data dict.
 
-    Reads the table rows and extracts config keys not already present in cfg.
-    Supported keys: workspace_root, archive_dir_name, refer_dir_name, fallback_dir_name.
+    Returns dict with scalar keys and directory_tree.
+    Returns empty dict if file not found, path empty, or parse fails.
     """
     ws_config_path = cfg.get("workspace_config_path", "")
     if not ws_config_path:
-        return
+        return {}
 
-    skill_root = Path(__file__).resolve().parent.parent
-    ws_path = skill_root / ws_config_path
-    if not ws_path.exists():
-        return
+    ws_path = Path(ws_config_path)
+    if not ws_path.is_absolute():
+        ws_path = _SKILL_ROOT / ws_config_path
 
     try:
-        with open(ws_path, "r", encoding="utf-8") as f:
-            text = f.read()
+        text = ws_path.read_text(encoding="utf-8")
     except OSError:
-        return
+        return {}
 
-    # Locate ## Configuration section and extract key→value from markdown table.
-    # Table row format: | `key_name` | description | `"default"` |
+    result = {}
+
+    # ── Configuration section (scalar keys) ──
     section = re.search(
         r"^## Configuration\n(.*?)(?=^## |\Z)", text, re.MULTILINE | re.DOTALL
     )
-    if not section:
-        return
+    if section:
+        for m in re.finditer(r"\|\s*`(\w+)`\s*\|\s*`([^`]+)`\s*\|", section.group(1)):
+            key, raw_value = m.group(1), m.group(2).strip('"')
+            if key in _WS_KEYS:
+                result[key] = raw_value
 
-    ws_values = {
-        m.group(1): m.group(2).strip('"')
-        for m in re.finditer(
-            r"\| `(\w+)` \| .*? \| ``?\"([^\"]+)\"``? \|", section.group(1)
-        )
-    }
+    # ── Build directory_tree from Directory→Type + Sub-directory ──
+    dir_section = re.search(
+        r"^## Directory→Type Mapping\n(.*?)(?=^## |\Z)", text, re.MULTILINE | re.DOTALL
+    )
+    sub_section = re.search(
+        r"^## Sub-directory Structure\n(.*?)(?=^## |\Z)", text, re.MULTILINE | re.DOTALL
+    )
 
-    # Only set keys not already present from config.json
-    for k in ("workspace_root", "archive_dir_name", "refer_dir_name", "fallback_dir_name"):
-        if k not in cfg and k in ws_values:
-            cfg[k] = ws_values[k]
+    tree = {}
+    if dir_section:
+        for m in re.finditer(r"\|\s*`([^`]+)`\s*\|\s*`(\w+)`\s*\|", dir_section.group(1)):
+            dir_name = m.group(1).rstrip("/")
+            tree[dir_name] = {"name": dir_name, "type": m.group(2), "sub": {}}
+
+    if sub_section:
+        for m in re.finditer(r"\|\s*`([^`]+)`\s*\|\s*`([^`]+)`\s*\|", sub_section.group(1)):
+            parent = m.group(1).rstrip("/")
+            subdir = m.group(2).rstrip("/")
+            if parent in tree:
+                tree[parent]["sub"][subdir] = {"name": subdir}
+
+    if tree:
+        result["directory_tree"] = tree
+
+    return result
+
+
+def _load_config() -> dict:
+    """Load config.local.json → config.json → flatten workspace dict → workspace file (if enabled).
+
+    Merge order: config.local.json overrides config.json;
+    workspace dict flattened to top level (non-empty values);
+    workspace config file supplements when enable_workspace_path is true.
+    Priority: workspace file → config dict → hard-coded defaults.
+    When workspace file unavailable, fall back to config dict values.
+    """
+    cfg = _read_json(_SKILL_ROOT / "config.json")
+    if not cfg:
+        return cfg
+
+    local = _read_json(_SKILL_ROOT / "config.local.json")
+    if local:
+        cfg.update(local)
+
+    # Flatten workspace sub-dict into top level
+    ws = cfg.pop("workspace", {})
+
+    # Parse workspace file when switch is on (enable_workspace_path is top-level key)
+    ws_file_data = {}
+    if cfg.get("enable_workspace_path", True):
+        ws_file_data = _parse_workspace_file(cfg)
+
+    # Priority: workspace file → config dict → defaults
+    # When file readable: file values take priority; dict fills gaps.
+    # When file not readable: dict values are the only source.
+    for key in _WS_KEYS:
+        val = ws_file_data.get(key, "")      # Try file first
+        if not val:
+            val = ws.get(key, "")             # Fall back to config dict
+        if val:
+            cfg[key] = val
+
+    # directory_tree: same priority (file → dict)
+    tree = ws_file_data.get("directory_tree")
+    if not tree:
+        tree = ws.get("directory_tree")
+    if tree:
+        cfg["directory_tree"] = tree
+
+    return cfg
 
 
 _config = _load_config()
@@ -111,17 +152,29 @@ def _cfg(key: str, default: str = "") -> str:
     return str(_config.get(key, default))
 
 
+def _allowed_extensions() -> list[str]:
+    """Return the allowed_extensions whitelist from merged config.
+
+    Fallback: ["md", "pptx", "xlsx", "docx", "pdf", "png", "mp4", "mp3"].
+    All items are lowercase, no leading dots.
+    """
+    exts = _config.get("allowed_extensions")
+    if isinstance(exts, list) and exts:
+        return [e.lower().lstrip(".") for e in exts if isinstance(e, str)]
+    return ["md", "pptx", "xlsx", "docx", "pdf", "png", "mp4", "mp3"]
+
+
 # =============================================================================
 #  Filename regex — canonical format
 # =============================================================================
-# Groups:
 #   $1  type       leading segment before first underscore
-#   $2  title      free-form, sanitised before construction
+#   $2  title      free-form
 #   $3  date       8-digit YYYYMMDD
 #   $4  version    semantic version X.Y.Z (no leading v)
 #   $5  suffix     optional .final or .refer (including leading dot), or None
-#   $6  author     word characters only
-#   $7  extension  file suffix after final dot
+#   $6  suffix keyword (final|refer) — internal, not exposed
+#   $7  author     word characters only
+#   $8  extension  file suffix after final dot
 
 FILENAME_RE = re.compile(
     r"^([^_]+)_(.+)_(\d{8})_v(\d+\.\d+\.\d+)(\.(final|refer))?_(\w+)\.(\w+)$"
@@ -146,7 +199,7 @@ def _sanitize(title: str) -> str:
 
 
 def _resolve_author(context_author: str = "") -> str:
-    """Resolve author: caller context → config.json default_author → 'Unknown'."""
+    """Resolve author: caller context → config default_author → 'Unknown'."""
     if context_author and context_author.strip():
         return context_author.strip()
     fb = _cfg("default_author", "Unknown")
@@ -171,7 +224,7 @@ def parse_filename(filename: str) -> dict | None:
         "title":   m.group(2),
         "date":    m.group(3),
         "version": m.group(4),
-        "suffix":  m.group(5) or "",       # ".final" / ".refer" / ""
+        "suffix":  m.group(5) or "",
         "author":  m.group(7),
         "ext":     m.group(8),
     }
@@ -187,48 +240,31 @@ def generate_name(
 ) -> dict:
     """Generate a compliant filename for a **new** document. No disk I/O.
 
-    Args:
-        title:     Document title (sanitised to ≤30 chars, filesystem-safe).
-        ext:       File extension (leading dot stripped).
-        file_type: Type prefix from Step 1 resolution.
-        author:    Author name from caller context.
-        date_str:  Override date as YYYYMMDD (default: today).
-        suffix:    'final' or 'refer' to append to version (default: none).
-
     Returns: {"name", "type", "title", "date", "version", "suffix", "author", "ext"}
+    Raises ValueError if extension not in allowed_extensions whitelist.
     """
-    # Type — caller provides resolved type; fallback to fallback_dir_name
+    e = ext.lstrip(".").lower()
+    allowed = _allowed_extensions()
+    if e not in allowed:
+        raise ValueError(
+            f"Extension '{e}' not in allowed_extensions whitelist {allowed}. "
+            f"Refusing execution — hard gate validation failed."
+        )
+
     prefix = file_type.strip() or _cfg("fallback_dir_name", "other")
-
-    # Title — sanitised
     t = _sanitize(title)
-
-    # Date — override or today
     d = date_str or date.today().strftime("%Y%m%d")
-
-    # Author — three-tier chain
     a = _resolve_author(author)
+    v = "1.0.0"
+    s = f".{suffix}" if suffix in ("final", "refer") else ""
 
-    # Version — always v1.0.0 for new docs
-    v = "v1.0.0"
-
-    # Suffix — append .final or .refer if caller specifies
-    s = ""
-    if suffix in ("final", "refer"):
-        s = f".{suffix}"
-        v += s
-
-    # Extension — strip leading dot
-    e = ext.lstrip(".")
-
-    # Assemble
-    name = f"{prefix}_{t}_{d}_{v}_{a}.{e}"
+    name = f"{prefix}_{t}_{d}_v{v}{s}_{a}.{e}"
     return {
         "name":    name,
         "type":    prefix,
         "title":   t,
         "date":    d,
-        "version": v,
+        "version": f"v{v}",
         "suffix":  s,
         "author":  a,
         "ext":     e,
@@ -238,53 +274,37 @@ def generate_name(
 def bump_version(filename: str, level: str = "patch") -> dict:
     """Bump version number and refresh date to today.
 
-    Increments version per semver semantics. Preserves existing .final/.refer
-    suffix from the original filename.
-
-    Args:
-        filename: Existing compliant filename.
-        level:    'major' | 'minor' | 'patch'.
+    Reconstructs the filename from parsed parts — no string-replace ambiguity.
 
     Raises ValueError if filename is not compliant.
-
-    Returns: {"old_name", "new_name", "old_version", "new_version"}
     """
     p = parse_filename(filename)
     if not p:
         raise ValueError(f"Non-compliant filename: {filename}")
 
-    # ---- Semantic version increment ----
     major, minor, patch = map(int, p["version"].split("."))
     if level == "major":
-        major += 1
-        minor = 0
-        patch = 0
+        major += 1; minor = 0; patch = 0
     elif level == "minor":
-        minor += 1
-        patch = 0
+        minor += 1; patch = 0
     else:
-        # Default 'patch' — also catches unrecognised levels
         patch += 1
 
     new_ver = f"v{major}.{minor}.{patch}"
-    new_ver_with_suffix = new_ver + p["suffix"]
-
-    # ---- Refresh date to today ----
     today = date.today().strftime("%Y%m%d")
 
-    # ---- Reconstruct — replace version then date ----
-    old_ver_full = f"v{p['version']}{p['suffix']}"
-    new = (
-        filename
-        .replace(old_ver_full, new_ver_with_suffix, 1)
-        .replace(p["date"], today, 1)
+    # Reconstruct from parts — avoids string-replace hitting the wrong field
+    new_name = (
+        f"{p['type']}_{p['title']}_{today}_{new_ver}{p['suffix']}"
+        f"_{p['author']}.{p['ext']}"
     )
 
     return {
         "old_name":    filename,
-        "new_name":    new,
-        "old_version": old_ver_full,
-        "new_version": new_ver_with_suffix,
+        "new_name":    new_name,
+        "old_version": f"v{p['version']}",
+        "new_version": new_ver,
+        "suffix":      p["suffix"],
     }
 
 
@@ -296,7 +316,7 @@ def archive_old_version(file_path: str | Path) -> Path | None:
       .refer  → <source_parent>/<refer_dir_name>/
       .final  → NOT moved (returns None without error)
 
-    Target directory is created if missing. Name collisions are resolved
+    Target directory is created if missing. Name collisions resolved
     by appending _1, _2, ... before the extension.
 
     Returns destination Path on success, or None if:
@@ -304,20 +324,15 @@ def archive_old_version(file_path: str | Path) -> Path | None:
       - suffix is .final (no move needed)
     """
     src = Path(file_path)
-
-    # Guard: source must exist
     if not src.exists():
         return None
 
-    # Parse suffix from filename to determine target directory
     parsed = parse_filename(src.name)
 
-    # .final files are NOT moved
-    if parsed and parsed.get("suffix") == ".final":
+    if parsed and parsed["suffix"] == ".final":
         return None
 
-    # Determine target sub-directory name
-    if parsed and parsed.get("suffix") == ".refer":
+    if parsed and parsed["suffix"] == ".refer":
         dir_name = _cfg("refer_dir_name", "refer")
     else:
         dir_name = _cfg("archive_dir_name", "history")
@@ -325,7 +340,6 @@ def archive_old_version(file_path: str | Path) -> Path | None:
     archive_dir = src.parent / dir_name
     archive_dir.mkdir(exist_ok=True)
 
-    # Resolve collisions
     dest = archive_dir / src.name
     if dest.exists():
         n = 1
@@ -342,96 +356,84 @@ def archive_old_version(file_path: str | Path) -> Path | None:
 # =============================================================================
 # All output is JSON. All errors are {"error": "..."} + exit(1).
 
-
 def _err(msg: str, code: int = 1) -> None:
     """Print JSON error and exit."""
     print(json.dumps({"error": msg}))
     sys.exit(code)
 
 
+def _parse_flags(args: list[str], mapping: dict[str, str]) -> dict[str, str]:
+    """Parse --flag value pairs; unknown flags silently skipped."""
+    result = {}
+    i = 0
+    while i < len(args):
+        key = mapping.get(args[i])
+        if key and i + 1 < len(args):
+            result[key] = args[i + 1]
+            i += 2
+        else:
+            i += 1
+    return result
+
+
 def _cmd_generate() -> None:
-    """CLI: naming.py generate <title> <ext> --type <type> --author <author>
-           [--date YYYYMMDD] [--suffix final|refer]"""
     if len(sys.argv) < 4:
         _err("Usage: naming.py generate <title> <ext> "
              "--type <type> --author <author> [--date YYYYMMDD] [--suffix final|refer]")
 
-    title  = sys.argv[2]
-    ext    = sys.argv[3]
-
-    file_type = ""
-    author    = ""
-    date_str  = ""
-    suffix    = ""
-
-    i = 4
-    while i < len(sys.argv):
-        a = sys.argv[i]
-        if a == "--type"   and i + 1 < len(sys.argv):
-            file_type = sys.argv[i + 1]; i += 1
-        elif a == "--author" and i + 1 < len(sys.argv):
-            author    = sys.argv[i + 1]; i += 1
-        elif a == "--date"   and i + 1 < len(sys.argv):
-            date_str  = sys.argv[i + 1]; i += 1
-        elif a == "--suffix" and i + 1 < len(sys.argv):
-            suffix    = sys.argv[i + 1]; i += 1
-        # Unrecognised flags are silently skipped
-        i += 1
+    opts = _parse_flags(sys.argv[4:], {
+        "--type":   "file_type",
+        "--author": "author",
+        "--date":   "date_str",
+        "--suffix": "suffix",
+    })
 
     print(json.dumps(
-        generate_name(title, ext, file_type, author, date_str, suffix),
+        generate_name(
+            sys.argv[2], sys.argv[3],
+            opts.get("file_type", ""),
+            opts.get("author", ""),
+            opts.get("date_str", ""),
+            opts.get("suffix", ""),
+        ),
         ensure_ascii=False,
     ))
 
 
 def _cmd_bump() -> None:
-    """CLI: naming.py bump <filename> <major|minor|patch>"""
     if len(sys.argv) < 4:
         _err("Usage: naming.py bump <filename> <major|minor|patch>")
 
-    filename = sys.argv[2]
-    level    = sys.argv[3]
-
+    level = sys.argv[3]
     if level not in ("major", "minor", "patch"):
         _err(f"Invalid bump level: '{level}'. Use major/minor/patch.")
 
     try:
-        print(json.dumps(bump_version(filename, level), ensure_ascii=False))
+        print(json.dumps(bump_version(sys.argv[2], level), ensure_ascii=False))
     except ValueError as e:
         _err(str(e))
 
 
 def _cmd_archive() -> None:
-    """CLI: naming.py archive <file_path>"""
     if len(sys.argv) < 3:
         _err("Usage: naming.py archive <file_path>")
 
     src = Path(sys.argv[2])
-
     if not src.exists():
         _err(f"File not found: {src}")
 
     dest = archive_old_version(src)
     if dest:
-        print(json.dumps(
-            {"archived": str(src), "to": str(dest)},
-            ensure_ascii=False,
-        ))
+        print(json.dumps({"archived": str(src), "to": str(dest)}, ensure_ascii=False))
     else:
-        # Source is .final or archive failed silently
         print(json.dumps(
-            {"archived": str(src), "to": None, "note": "file is .final — not moved"},
+            {"archived": str(src), "to": None, "note": ".final — not moved"},
             ensure_ascii=False,
         ))
 
 
 def main() -> None:
-    """Dispatch to sub-command."""
-    cmds = {
-        "generate": _cmd_generate,
-        "bump":     _cmd_bump,
-        "archive":  _cmd_archive,
-    }
+    cmds = {"generate": _cmd_generate, "bump": _cmd_bump, "archive": _cmd_archive}
 
     if len(sys.argv) < 2:
         _err(f"Usage: naming.py <{'|'.join(cmds)}> [args...]")

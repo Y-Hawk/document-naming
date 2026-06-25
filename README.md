@@ -1,57 +1,53 @@
 # Document Naming
 
-文档命名、文件生成、版本管理与归档的规范化工具。为内容创作工作空间提供统一的文件命名格式、自动版本递增与旧版本归档能力。
+文档命名、文件生成、版本管理与归档的规范化技能。为内容创作工作空间提供统一命名格式、自动版本递增与旧版本归档能力。
 
 > **English documentation**: [README.en.md](README.en.md)
 
 ## 特性
 
 - 📝 **统一命名格式** — `Type_Title_YYYYMMDD_v<major.minor.patch>[_suffix]_Author.ext`，自动清理非法字符与空白
-- 🔄 **语义化版本管理** — 支持 `major/minor/patch` 三级递增，可选 `.final`（定稿）与 `.refer`（参考）后缀
-- 📦 **自动归档** — 修改文档时旧版本自动移入 `history/` 或 `refer/` 子目录，绝不残留
-- ⚙️ **配置驱动** — 双来源合并（技能配置 + 工空间配置），全部软回退，不会因配置缺失而中断
-- 🔧 **CLI + Python API** — 纯标准库实现，零外部依赖，Python 3.10+ 即可运行
+- 🔄 **语义化版本管理** — `major/minor/patch` 三级递增，可选 `.final`（定稿）与 `.refer`（参考）后缀
+- 📦 **自动归档** — 修改文档时旧版本自动移入 `history/` 或 `refer/`，零残留
+- ⚙️ **配置驱动** — 多来源合并，全部软回退，不会因配置缺失而中断
+- 🔧 **技能调用** — 自然语言提示词触发，无需手动执行脚本
 
-## 快速开始
+## 快速上手
 
-### 安装
+> **铁律**：涉及文档内容的一切操作（新建、修改、调整、优化等），必须先调用此技能。不自行构造文件名，不跳过三步工作流，不区分"大改""小改"。
+> 
+> **格式强制验证**：只有 `allowed_extensions` 白名单中的文件类型才会被处理，不在白名单中的扩展名即使触发了技能也拒绝执行。
 
-```bash
-# 克隆仓库
-git clone https://github.com/your-org/document-naming.git
-cd document-naming
-```
+### 方案一：明确信息
 
-### 30 秒上手
+用户提供完整参数，技能直接执行：
 
-```bash
-# 生成合规文件名
-python scripts/naming.py generate "内容策略" md --type guide --author Hawk
+| 操作    | 提示词模板            | 示例                                   |
+| ----- | ---------------- | ------------------------------------ |
+| 新建文档  | `新建{类型}文档：{标题}`  | `新建方案文档：内容策略`                        |
+| 修改文档  | `修改{文件名}，{递增级别}` | `修改方案_内容策略_..._v1.0.0_Hawk.md，minor` |
+| 归档旧版本 | `归档{文件名}`        | `归档方案_内容策略_..._v1.0.0_Hawk.md`       |
 
-# 版本递增
-python scripts/naming.py bump "guide_内容策略_20260625_v1.0.0_Hawk.md" minor
+递增级别：`major`（重构） / `minor`（增删） / `patch`（修错字）
 
-# 归档旧版本
-python scripts/naming.py archive "guide_内容策略_20260625_v1.0.0_Hawk.md"
-```
+### 方案二：自然语言（AI 自动判断）
 
-### Python 调用
+用户只表达意图，AI 自动推断类型与递增级别：
 
-```python
-from naming import generate_name, bump_version, archive_old_version, parse_filename
+| 操作   | 提示词模板         | 示例               |
+| ---- | ------------- | ---------------- |
+| 新建文档 | `新建关于{标题}的文档` | `新建关于内容策略的文档`    |
+| 修改文档 | `修改{文件名}`     | `修改内容策略文档，重写了一半` |
 
-# 生成合规文件名（无磁盘 I/O）
-result = generate_name("内容策略", "md", file_type="guide", author="Hawk")
+**类型推断**：从工作空间配置 Directory→Type 映射匹配 → 无匹配则用 `fallback_dir_name`（默认 `other`）
 
-# 版本递增
-bumped = bump_version("guide_内容策略_20260625_v1.0.0_Hawk.md", "minor")
+**递增推断**：重写/重构 → `major` · 补充/增删 → `minor` · 改错字/调格式 → `patch`
 
-# 归档旧版本
-dest = archive_old_version("guide_内容策略_20260625_v1.0.0_Hawk.md")
+> 修改文档后归档自动触发，无需单独调用。
 
-# 解析合规文件名
-parsed = parse_filename("guide_内容策略_20260625_v1.0.0_Hawk.md")
-```
+---
+
+> **触发词**：新建、创建、生成、修改、调整、编辑、优化、拆分、归档，以及任何涉及文档新建或修改的场景。
 
 ## 命名格式
 
@@ -61,177 +57,72 @@ Type_Title_YYYYMMDD_v<major.minor.patch>[.final|.refer]_Author.ext
 
 示例：`guide_claw-content-strategy_20260407_v1.0.0_Hawk.md`
 
-### 字段定义
+完整字段定义、回退规则与版本策略 → [references/rules.md](references/rules.md)
 
-| 字段 | 规则 |
-|------|------|
-| **Type** | 由 Step 1 解析，可为任意非空字符串。通过工作空间配置的「目录→类型映射」关联到 L1 目录 |
-| **Title** | ≤ 30 字符，自动移除 `\/:*?"<>|` 及空白。清理后为空则报错 |
-| **Date** | `YYYYMMDD`，始终为当天日期 |
-| **Version** | `v<major>.<minor>.<patch>` — 语义化版本。新文档为 `v1.0.0` |
-| **Suffix** | 可选 `.final`（定稿/已审批）或 `.refer`（参考/备份） |
-| **Author** | 优先级：调用方提供 → `config.json` → `"Unknown"` |
-| **Extension** | 优先级：调用方提供 → `config.json` → `.md` |
+## 三步工作流
 
-### 版本策略
-
-| 递增级别 | 适用场景 |
-|----------|----------|
-| `major` | 主题/内容/框架完全重构 |
-| `minor` | 内容增删、改写 |
-| `patch` | 格式修正、语法、错字 |
-
-### 版本后缀与归档路由
-
-| 后缀 | 含义 | 归档行为 |
-|------|------|----------|
-| （无） | 工作进行中 | 移入 `history/` |
-| `.final` | 定稿/已审批 | **不移入**，留在原位 |
-| `.refer` | 参考/备份 | 移入 `refer/` |
-
-## 工作流
-
-所有涉及文档内容的新建或修改操作，必须先调用此技能。
-
-**铁律**：不自行构造文件名，不跳过三步工作流，不区分"大改""小改"。
-
-### Step 1 — 类型匹配（`create`）
-
-根据工作空间配置的「目录→类型映射」解析文件名前缀：
-
-| 场景 | 行为 |
-|------|------|
-| 调用方提供类型，且匹配已知类型 | 规范化为匹配的类型 |
-| 调用方提供类型，但不匹配任何已知类型 | 保留调用方类型（不报错） |
-| 调用方未提供类型 | 使用 `fallback_dir_name`（默认 `"other"`） |
-
-### Step 2 — 文件生成（`create` + `modify`）
-
-**新建**：根据 Step 1 解析的类型生成合规文件名，确定保存路径并写入文件。
-
-保存路径规则：
-- **L1**：类型匹配到目录映射 → 使用映射目录；未匹配 → `99 <fallback_dir_name>/`
-- **L2**：遵循工作空间配置的子目录结构，不存在则创建
-
-**修改**：
-1. 解析现有合规文件名的版本段
-2. 按语义化版本递增（`major/minor/patch`）
-3. 日期刷新为当天
-4. 仅替换版本和日期，标题、类型、作者、扩展名保持不变
-5. 新文件写入原目录，旧文件由 Step 3 归档
-
-### Step 3 — 文件归档（`modify`）
-
-修改后自动将旧版本文件移入对应子目录：
-
-| 后缀 | 目标目录 | 配置键 | 默认值 |
-|------|----------|--------|--------|
-| （无） | `<源目录>/history/` | `archive_dir_name` | `history` |
-| `.refer` | `<源目录>/refer/` | `refer_dir_name` | `refer` |
-| `.final` | **不移入** | — | — |
-
-归档流程：验证源文件 → 路由到目标目录 → 创建目录 → **移动**文件 → 验证源文件已删除
-
-> **关键**：必须使用移动操作（`mv`/`Move-Item`/`shutil.move`），绝不使用复制，避免旧版本残留在主目录。
-
-| 平台 | 正确 | 错误 |
-|------|------|------|
-| Git Bash | `mv` | ~~`cp`~~ |
-| PowerShell | `Move-Item` | ~~`Copy-Item`~~ |
-| Python | `shutil.move()` | ~~`shutil.copy()`~~ |
+| 步骤                | 适用操作                | 说明                          | 详细文档                                                            |
+| ----------------- | ------------------- | --------------------------- | --------------------------------------------------------------- |
+| **Step 1** — 类型匹配 | `create`            | Directory→Type 映射匹配类型前缀     | [step1-type-matching.md](references/step1-type-matching.md)     |
+| **Step 2** — 文件生成 | `create` / `modify` | 生成合规文件名并写入                  | [step2-file-generation.md](references/step2-file-generation.md) |
+| **Step 3** — 文件归档 | `modify`            | 旧版本移入 `history/` 或 `refer/` | [step3-file-archive.md](references/step3-file-archive.md)       |
 
 ## 配置
 
-运行时配置从两个来源合并，任一来源不可读均不中断执行：
+合并顺序：工作空间配置文件（`enable_workspace_path=true` 且可读） → `config.local.json` → `config.json` → 硬编码默认值。全部软回退。
 
-| 来源 | 文件 | 提供的配置项 |
-|------|------|-------------|
-| **技能配置** | `config.json` | `default_author`、`default_extension`、`default_workspace_root`、`workspace_config_path` |
-| **工作空间配置** | `workspace_config_path` 指定的文件 | `workspace_root`、`archive_dir_name`、`refer_dir_name`、`fallback_dir_name`；目录→类型映射 |
+完整配置键、层级与回退链 → [SKILL.md Configuration 章节](SKILL.md)
 
-回退链（全部软回退）：
+### 目录与类型 — 两种配置模式
 
-| 配置键 | 优先级 |
-|--------|--------|
-| `workspace_root` | 调用方指定 → Desktop → 上下文/系统匹配目录 |
-| `archive_dir_name` | 工作空间配置 → `history` |
-| `refer_dir_name` | 工作空间配置 → `refer` |
-| `fallback_dir_name` | 工作空间配置 → `other` |
-| `default_author` | `config.json` → `Unknown` |
-| `default_extension` | `config.json` → `.md` |
+目录→类型映射（`directory_tree`）支持两种配置方式，读取时优先级：workspace 文件 > config dict。
 
-### config.json 示例
+**模式一：workspace 文件**
+
+在 `references/workspace.md` 中以表格形式定义 Directory→Type Mapping 和 Sub-directory Structure。这里只是参考文档，在格式保持一致的前提下，可更改后存放在任何位置，只需把文件路径配置到`workspace_config_path`且`enable_workspace_path=true`，脚本会自动解析该文件生成 `directory_tree`，优先覆盖 config dict 中的值。
+
+***注意：文档中的配置和目录表格必须保持与该文档格式一致，子目录可不设置。***
+
+**模式二：config dict**
+
+直接在 `config.json` / `config.local.json` 的 `workspace.directory_tree` 字典中配置，格式：
 
 ```json
 {
-  "default_author": "Hawk",
-  "default_extension": "md",
-  "default_workspace_root": "C:/Users/admin/Desktop/内容创作专家",
-  "workspace_config_path": "C:/Users/admin/.workbuddy/WORKSPACE.md"
+  "draft": {"name": "draft", "type": "draft", "sub": {"<topic>": {"name": "<topic>"}}},
+  "material": {"name": "material", "type": "material", "sub": {"illustration": {"name": "illustration"}, "ai-hot": {"name": "ai-hot"}}},
+  "daily": {"name": "daily", "type": "daily", "sub": {}}
 }
 ```
 
-## CLI 参考
+- `name`：目录名（也作为字典键）
+- `type`：文件名类型前缀（Step 1 仅用此列匹配类型）
+- `sub`：子目录嵌套字典，`{}` 表示无子目录
 
-```bash
-# 生成新文件名
-python scripts/naming.py generate <title> <ext> \
-    --type <type> --author <author> \
-    [--date YYYYMMDD] [--suffix final|refer]
+> **选择建议**：workspace 文件模式便于人工编辑和阅读；config dict 模式适合自动化或纯 JSON 环境。两种模式可共存——workspace 文件启用时覆盖 config dict 值，关闭时回退到 config dict。
 
-# 版本递增
-python scripts/naming.py bump <filename> <major|minor|patch>
-
-# 归档旧版本
-python scripts/naming.py archive <file_path>
-```
-
-### 输出示例
-
-```bash
-# 生成
-$ python scripts/naming.py generate "内容策略" md --type guide --author Hawk
-{"name":"guide_内容策略_20260625_v1.0.0_Hawk.md","type":"guide","title":"内容策略","date":"20260625","version":"v1.0.0","suffix":"","author":"Hawk","ext":"md"}
-
-# 递增
-$ python scripts/naming.py bump "guide_内容策略_20260625_v1.0.0_Hawk.md" minor
-{"old_name":"guide_内容策略_20260625_v1.0.0_Hawk.md","new_name":"guide_内容策略_20260625_v1.1.0_Hawk.md","old_version":"v1.0.0","new_version":"v1.1.0"}
-
-# 归档
-$ python scripts/naming.py archive "guide_内容策略_20260625_v1.0.0_Hawk.md"
-{"archived":".../guide_内容策略_20260625_v1.0.0_Hawk.md","to":".../history/guide_内容策略_20260625_v1.0.0_Hawk.md"}
-```
-
-## Python API 参考
-
-| 函数 | 用途 |
-|------|------|
-| `generate_name(title, ext, file_type, author, date_str, suffix)` | 生成合规文件名（无磁盘 I/O），返回结构化 dict |
-| `bump_version(filename, level)` | 版本递增 + 日期刷新，返回新旧文件名与版本 |
-| `archive_old_version(file_path)` | 移动旧版本到归档目录，返回目标 Path |
-| `parse_filename(filename)` | 解析合规文件名为结构化 dict，不合规返回 None |
+> **配置建议**：可直接在 `config.json` 中填写个人配置值（如作者名、工作空间路径）。若需要将仓库推送至远程（GitHub/Gitee 等），建议将 `config.json` 复制为 `config.local.json`，再将个人配置值移入 `config.local.json`、`config.json` 恢复为空值模板，避免本地配置信息泄露至远程仓库。
 
 ## 目录结构
 
 ```
 document-naming/
-├── SKILL.md              # 技能控制文件（触发条件、工作流、配置说明）
-├── config.json           # 技能级默认配置
-├── README.md             # 中文说明文档
-├── README.en.md          # 英文说明文档
+├── SKILL.md                      # 技能控制文件
+├── config.json                   # 出厂默认配置
+├── README.md                     # 中文说明
+├── README.en.md                  # 英文说明
+├── LICENSE                       # MIT 许可证
 ├── references/
-│   ├── rules.md          # 命名格式规范、字段定义、版本策略
-│   ├── step1-type-matching.md   # Step 1 类型匹配规则
-│   ├── step2-file-generation.md # Step 2 文件生成规则
-│   └── step3-file-archive.md    # Step 3 文件归档规则
+│   ├── rules.md                  # 命名格式规范
+│   ├── step1-type-matching.md    # Step 1 类型匹配
+│   ├── step2-file-generation.md  # Step 2 文件生成
+│   ├── step3-file-archive.md     # Step 3 文件归档
+│   └── workspace.md              # 工作空间配置参考
 └── scripts/
-    └── naming.py         # 命名工具（CLI + Python API）
+    └── naming.py                 # 命名工具脚本
 ```
 
-## 系统要求
-
-- Python 3.10+（使用 `dict | None` 类型语法）
-- 无外部依赖，纯标准库实现
+> `config.local.json` 和 `scripts/__pycache__/` 被 `.gitignore` 排除，不出现在远程仓库中。
 
 ## 贡献
 

@@ -1,57 +1,53 @@
 # Document Naming
 
-A standardized tool for document naming, file generation, version management, and archiving. Provides unified filename formats, automatic version bumping, and old-version archiving for content creation workspaces.
+A standardized skill for document naming, file generation, version management, and archiving. Provides unified filename formats, automatic version bumping, and old-version archiving for content creation workspaces.
 
 > **中文文档**: [README.md](README.md)
 
 ## Features
 
 - 📝 **Unified naming format** — `Type_Title_YYYYMMDD_v<major.minor.patch>[_suffix]_Author.ext`, automatically cleans illegal characters and whitespace
-- 🔄 **Semantic versioning** — Supports `major/minor/patch` three-level bumping, optional `.final` (approved) and `.refer` (reference) suffixes
+- 🔄 **Semantic versioning** — `major/minor/patch` three-level bumping, optional `.final` (approved) and `.refer` (reference) suffixes
 - 📦 **Auto archiving** — Old versions are automatically moved to `history/` or `refer/` subdirectories when a document is modified, with zero residue
-- ⚙️ **Config-driven** — Dual-source merging (skill config + workspace config), fully soft-fallback — never halts due to missing configuration
-- 🔧 **CLI + Python API** — Pure standard library implementation, zero external dependencies, runs on Python 3.10+
+- ⚙️ **Config-driven** — Multi-source merging, fully soft-fallback — never halts due to missing configuration
+- 🔧 **Skill invocation** — Trigger naming, version bumping, and archiving via natural-language prompts; no manual script execution needed
 
 ## Quick Start
 
-### Installation
+> **Iron rule**: All operations involving document creation or modification must invoke this skill first. Never construct filenames manually, never skip the 3-step workflow, never skip the skill for any change — regardless of perceived size.
+>
+> **Format validation (hard gate)**: only file extensions in the `allowed_extensions` whitelist are processed; extensions not in the whitelist are refused — even if the skill was triggered.
 
-```bash
-# Clone the repository
-git clone https://github.com/your-org/document-naming.git
-cd document-naming
-```
+### Scheme 1: Explicit Info
 
-### 30-Second Demo
+User provides full parameters; the skill executes directly:
 
-```bash
-# Generate a compliant filename
-python scripts/naming.py generate "Content Strategy" md --type guide --author Hawk
+| Operation | Prompt Template | Example |
+|-----------|----------------|---------|
+| Create document | `Create {type} document: {title}` | `Create guide document: Content Strategy` |
+| Modify document | `Modify {filename}, {bump_level}` | `Modify guide_Content-Strategy_..._v1.0.0_Hawk.md, minor` |
+| Archive old version | `Archive {filename}` | `Archive guide_Content-Strategy_..._v1.0.0_Hawk.md` |
 
-# Bump version
-python scripts/naming.py bump "guide_Content-Strategy_20260625_v1.0.0_Hawk.md" minor
+Bump level: `major` (restructure) / `minor` (add/remove) / `patch` (fix typo)
 
-# Archive old version
-python scripts/naming.py archive "guide_Content-Strategy_20260625_v1.0.0_Hawk.md"
-```
+### Scheme 2: Natural Language (AI Auto-Judgment)
 
-### Python Usage
+User expresses intent only; AI infers type and bump level automatically:
 
-```python
-from naming import generate_name, bump_version, archive_old_version, parse_filename
+| Operation | Prompt Template | Example |
+|-----------|----------------|---------|
+| Create document | `Create a document about {title}` | `Create a document about content strategy` |
+| Modify document | `Modify {filename}` | `Modify content strategy document, rewrote half of it` |
 
-# Generate a compliant filename (no disk I/O)
-result = generate_name("Content Strategy", "md", file_type="guide", author="Hawk")
+**Type inference**: Matches against workspace config's Directory→Type mapping → if no match, use `fallback_dir_name` (default `other`)
 
-# Bump version
-bumped = bump_version("guide_Content-Strategy_20260625_v1.0.0_Hawk.md", "minor")
+**Bump inference**: Rewrite/restructure → `major` · Add/remove sections → `minor` · Fix typos/format → `patch`
 
-# Archive old version
-dest = archive_old_version("guide_Content-Strategy_20260625_v1.0.0_Hawk.md")
+> Archive is automatically triggered after modifying a document — no separate invocation needed.
 
-# Parse a compliant filename
-parsed = parse_filename("guide_Content-Strategy_20260625_v1.0.0_Hawk.md")
-```
+---
+
+> **Trigger words**: create, generate, modify, adjust, edit, optimize, split, archive, and any scenario involving document creation or modification.
 
 ## Naming Format
 
@@ -61,177 +57,72 @@ Type_Title_YYYYMMDD_v<major.minor.patch>[.final|.refer]_Author.ext
 
 Example: `guide_content-strategy_20260407_v1.0.0_Hawk.md`
 
-### Field Definitions
+Full field definitions, fallback rules and version policy → [references/rules.md](references/rules.md)
 
-| Field | Rules |
-|-------|-------|
-| **Type** | Resolved by Step 1; can be any non-empty string. Linked to L1 directory via workspace config's "directory→type mapping" |
-| **Title** | ≤ 30 characters; automatically removes `\/:*?"<>|` and whitespace. Error if empty after cleaning |
-| **Date** | `YYYYMMDD`, always the current date |
-| **Version** | `v<major>.<minor>.<patch>` — semantic versioning. New documents default to `v1.0.0` |
-| **Suffix** | Optional `.final` (approved/finalized) or `.refer` (reference/backup) |
-| **Author** | Priority: caller-provided → `config.json` → `"Unknown"` |
-| **Extension** | Priority: caller-provided → `config.json` → `.md` |
+## 3-Step Workflow
 
-### Version Policy
-
-| Bump Level | When to Use |
-|------------|-------------|
-| `major` | Complete restructuring of topic, content, or framework |
-| `minor` | Content additions, deletions, or rewrite |
-| `patch` | Format fixes, grammar, typo corrections |
-
-### Version Suffixes & Archive Routing
-
-| Suffix | Meaning | Archive Behavior |
-|--------|---------|------------------|
-| (none) | Work in progress | Move to `history/` |
-| `.final` | Approved/finalized | **Do not move** — stays in place |
-| `.refer` | Reference/backup | Move to `refer/` |
-
-## Workflow
-
-All operations involving document creation or modification must invoke this skill first.
-
-**Iron rule**: Never construct filenames manually, never skip the 3-step workflow, never distinguish between "major" and "minor" changes.
-
-### Step 1 — Type Matching (`create`)
-
-Resolves the filename prefix based on workspace config's "directory→type mapping":
-
-| Scenario | Behavior |
-|----------|----------|
-| Caller provides a type that matches a known type | Normalize to the matched type |
-| Caller provides a type that doesn't match any known type | Keep the caller's type (no error) |
-| Caller doesn't provide a type | Use `fallback_dir_name` (default `"other"`) |
-
-### Step 2 — File Generation (`create` + `modify`)
-
-**Create**: Generates a compliant filename based on the type resolved in Step 1, determines the save path, and writes the file.
-
-Save path rules:
-- **L1**: Type matches a directory mapping → use the mapped directory; no match → `99 <fallback_dir_name>/`
-- **L2**: Follow workspace config's sub-directory structure; create if not exists
-
-**Modify**:
-1. Parse the version segment from the existing compliant filename
-2. Bump semantic version (`major/minor/patch`)
-3. Refresh the date to current day
-4. Replace only version and date — title, type, author, and extension remain unchanged
-5. Write the new file to the original directory; the old file is archived by Step 3
-
-### Step 3 — File Archive (`modify`)
-
-After modification, automatically move the old version file to the corresponding subdirectory:
-
-| Suffix | Target Directory | Config Key | Default |
-|--------|------------------|------------|---------|
-| (none) | `<source_dir>/history/` | `archive_dir_name` | `history` |
-| `.refer` | `<source_dir>/refer/` | `refer_dir_name` | `refer` |
-| `.final` | **Do not move** | — | — |
-
-Archive flow: verify source file → route to target directory → create directory → **move** file → verify source file deleted
-
-> **Critical**: Always use move operations (`mv`/`Move-Item`/`shutil.move`), never copy, to prevent old versions from remaining in the main directory.
-
-| Platform | Correct | Wrong |
-|----------|---------|-------|
-| Git Bash | `mv` | ~~`cp`~~ |
-| PowerShell | `Move-Item` | ~~`Copy-Item`~~ |
-| Python | `shutil.move()` | ~~`shutil.copy()`~~ |
+| Step | Applies to | Description | Reference |
+|------|------------|-------------|-----------|
+| **Step 1** — Type Matching | `create` | Match type prefix from Directory→Type mapping | [step1-type-matching.md](references/step1-type-matching.md) |
+| **Step 2** — File Generation | `create` / `modify` | Generate compliant filename and write file | [step2-file-generation.md](references/step2-file-generation.md) |
+| **Step 3** — File Archive | `modify` | Move old version to `history/` or `refer/` | [step3-file-archive.md](references/step3-file-archive.md) |
 
 ## Configuration
 
-Runtime configuration is merged from two sources. Either source being unreadable will not halt execution:
+Merge order: workspace config file (if `enable_workspace_path=true` & readable) → `config.local.json` → `config.json` → hard-coded defaults. All soft-fallback.
 
-| Source | File | Provides |
-|--------|------|----------|
-| **Skill config** | `config.json` | `default_author`, `default_extension`, `default_workspace_root`, `workspace_config_path` |
-| **Workspace config** | (path from `workspace_config_path`) | `workspace_root`, `archive_dir_name`, `refer_dir_name`, `fallback_dir_name`; directory→type mapping |
+Full config keys, levels and fallback chains → [SKILL.md Configuration](SKILL.md)
 
-Fallback chain (all soft — never halt):
+### Directory & Type — Two Configuration Modes
 
-| Config Key | Priority |
-|------------|----------|
-| `workspace_root` | caller-specified → Desktop → context/system-matched directory |
-| `archive_dir_name` | workspace config → `"history"` |
-| `refer_dir_name` | workspace config → `"refer"` |
-| `fallback_dir_name` | workspace config → `"other"` |
-| `default_author` | `config.json` → `"Unknown"` |
-| `default_extension` | `config.json` → `.md` |
+Directory→type mapping (`directory_tree`) supports two modes, with read priority: workspace file > config dict.
 
-### config.json Example
+**Mode 1: Workspace File**
+
+Define Directory→Type Mapping and Sub-directory Structure in `references/workspace.md` using tables. This is just a reference document — as long as the format stays consistent, you can relocate it anywhere. Just set the file path in `workspace_config_path` and ensure `enable_workspace_path=true`; the script will automatically parse the file to generate `directory_tree`, overriding config dict values.
+
+***Note: The configuration and directory tables in the document must maintain format consistency with that document. Sub-directories are optional.***
+
+**Mode 2: Config Dict**
+
+Configure directly in `config.json` / `config.local.json` under `workspace.directory_tree`:
 
 ```json
 {
-  "default_author": "Hawk",
-  "default_extension": "md",
-  "default_workspace_root": "C:/Users/admin/Desktop/ContentCreationExpert",
-  "workspace_config_path": "C:/Users/admin/.workbuddy/WORKSPACE.md"
+  "draft": {"name": "draft", "type": "draft", "sub": {"<topic>": {"name": "<topic>"}}},
+  "material": {"name": "material", "type": "material", "sub": {"illustration": {"name": "illustration"}, "ai-hot": {"name": "ai-hot"}}},
+  "daily": {"name": "daily", "type": "daily", "sub": {}}
 }
 ```
 
-## CLI Reference
+- `name`: directory name (also used as dict key)
+- `type`: filename type prefix (Step 1 uses only this field for type matching)
+- `sub`: nested dict of sub-directories; `{}` means no sub-dirs
 
-```bash
-# Generate a new filename
-python scripts/naming.py generate <title> <ext> \
-    --type <type> --author <author> \
-    [--date YYYYMMDD] [--suffix final|refer]
+> **Choosing a mode**: Workspace file mode is easier for manual editing and reading; config dict mode suits automation or pure JSON environments. Both can coexist — workspace file overrides config dict when enabled, config dict is the fallback when disabled.
 
-# Bump version
-python scripts/naming.py bump <filename> <major|minor|patch>
-
-# Archive old version
-python scripts/naming.py archive <file_path>
-```
-
-### Output Examples
-
-```bash
-# Generate
-$ python scripts/naming.py generate "Content Strategy" md --type guide --author Hawk
-{"name":"guide_Content-Strategy_20260625_v1.0.0_Hawk.md","type":"guide","title":"Content Strategy","date":"20260625","version":"v1.0.0","suffix":"","author":"Hawk","ext":"md"}
-
-# Bump
-$ python scripts/naming.py bump "guide_Content-Strategy_20260625_v1.0.0_Hawk.md" minor
-{"old_name":"guide_Content-Strategy_20260625_v1.0.0_Hawk.md","new_name":"guide_Content-Strategy_20260625_v1.1.0_Hawk.md","old_version":"v1.0.0","new_version":"v1.1.0"}
-
-# Archive
-$ python scripts/naming.py archive "guide_Content-Strategy_20260625_v1.0.0_Hawk.md"
-{"archived":".../guide_Content-Strategy_20260625_v1.0.0_Hawk.md","to":".../history/guide_Content-Strategy_20260625_v1.0.0_Hawk.md"}
-```
-
-## Python API Reference
-
-| Function | Purpose |
-|----------|---------|
-| `generate_name(title, ext, file_type, author, date_str, suffix)` | Generate a compliant filename (no disk I/O), returns a structured dict |
-| `bump_version(filename, level)` | Bump version + refresh date, returns old and new filename & version |
-| `archive_old_version(file_path)` | Move old version to archive directory, returns target Path |
-| `parse_filename(filename)` | Parse a compliant filename into a structured dict; returns None if non-compliant |
+> **Config tip**: You can put personal values (author name, workspace path, etc.) directly in `config.json`. If you plan to push the repo to a remote (GitHub/Gitee etc.), copy `config.json` as `config.local.json`, move personal values there, and restore `config.json` to its empty-value template — this prevents local config from leaking to the remote repository.
 
 ## Directory Structure
 
 ```
 document-naming/
-├── SKILL.md              # Skill control file (triggers, workflow, config docs)
-├── config.json           # Skill-level default configuration
-├── README.md             # Chinese documentation
-├── README.en.md          # English documentation
+├── SKILL.md                      # Skill control file
+├── config.json                   # Default config template
+├── README.md                     # Chinese documentation
+├── README.en.md                  # English documentation
+├── LICENSE                       # MIT License
 ├── references/
-│   ├── rules.md          # Naming format spec, field definitions, version policy
-│   ├── step1-type-matching.md   # Step 1 type matching rules
-│   ├── step2-file-generation.md # Step 2 file generation rules
-│   └── step3-file-archive.md    # Step 3 file archive rules
+│   ├── rules.md                  # Naming format specification
+│   ├── step1-type-matching.md    # Step 1 type matching
+│   ├── step2-file-generation.md  # Step 2 file generation
+│   ├── step3-file-archive.md     # Step 3 file archive
+│   └── workspace.md              # Workspace config reference
 └── scripts/
-    └── naming.py         # Naming tool (CLI + Python API)
+    └── naming.py                 # Naming utility script
 ```
 
-## Requirements
-
-- Python 3.10+ (uses `dict | None` type syntax)
-- No external dependencies — pure standard library implementation
+> `config.local.json` and `scripts/__pycache__/` are excluded by `.gitignore` and do not appear in the remote repository.
 
 ## Contributing
 

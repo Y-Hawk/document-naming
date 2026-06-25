@@ -2,13 +2,17 @@
 
 **Applies to: `create`.**
 
-Resolves the type prefix to use in the filename. Reads workspace config for directory→type mapping.
+Resolves the type prefix for the filename. Data source: `directory_tree` — each entry's `type` field only (no keyword mapping).
 
 ---
 
 ## Prerequisite
 
-Read `config.json` → `workspace_config_path` for the workspace config document. If unavailable, warn and continue — skill remains operational with `config.json` defaults. See [SKILL.md](../SKILL.md) → Configuration for fallback rules.
+**Merged config** = the flattened dict returned by `naming.py` `_load_config()`. After flattening, all workspace keys (`workspace_root`, `directory_tree`, etc.) are top-level — never accessed via `config["workspace"]`.
+
+**Mandatory validation (hard gate)**: Before Step 1, validate the requested file extension against `allowed_extensions` from merged config. If extension not in the whitelist → refuse execution immediately, no further steps.
+
+Read merged config for `directory_tree`. If `enable_workspace_path` is `true` and `workspace_config_path` points to a readable file, that file's data takes priority over config dict values. If unavailable, fall back to config dict defaults.
 
 ---
 
@@ -16,8 +20,6 @@ Read `config.json` → `workspace_config_path` for the workspace config document
 
 | Scenario | Action |
 |----------|--------|
-| Caller provides a type, and it matches a known type from workspace config | Normalize to the matched type |
-| Caller provides a type, but it does not match any known type | Keep caller type as-is (do NOT error) |
-| Caller provides no type | Use `fallback_dir_name` from workspace config (default `"other"`) |
-
-The resolved type is passed to Step 2 for L1 directory mapping and filename generation.
+| Caller type matches a known type prefix | Normalize to matched prefix |
+| Caller type matches no known prefix | Keep caller type (no error) |
+| Caller provides no type | Use `fallback_dir_name` (default `"other"`) |
