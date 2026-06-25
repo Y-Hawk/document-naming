@@ -10,7 +10,7 @@ Canonical format specification for the document-naming skill. All filename gener
 Type_Title_YYYYMMDD_v<major.minor.patch>[.final|.refer]_Author.ext
 ```
 
-Example: `guide_claw-content-strategy_20260407_v1.0.0_Kai.md`
+Example: `guide_claw-content-strategy_20260407_v1.0.0_Hawk.md`
 
 ---
 

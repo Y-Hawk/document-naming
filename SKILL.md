@@ -1,7 +1,7 @@
 ---
 name: document-naming
-description: "Document naming, file generation, version management and archiving — covers type matching, filename generation, version bumping and old-version archiving. Triggers: modify, adjust, edit, create, generate, add, split, optimize, refine, output. File types: .md | .pptx .ppt | .xlsx .xls .csv .tsv | .docx .doc .pdf .txt | .png .jpg .jpeg .gif .svg .webp | .mp4 .mov .avi .webm | .mp3 .wav .ogg .flac."
-version: "V1.0.2"
+description: "Document naming, file generation, version management and archiving — covers type matching, filename generation, version bumping and old-version archiving. Triggers: modify, adjust, edit, create, generate, add, split, optimize, refine, output, and any other scenario involving document creation or modification. File types: .md | .pptx .ppt | .xlsx .xls .csv .tsv | .docx .doc .pdf .txt | .png .jpg .jpeg .gif .svg .webp | .mp4 .mov .avi .webm | .mp3 .wav .ogg .flac."
+version: "V1.0.0"
 ---
 
 # Document Naming
@@ -40,7 +40,7 @@ If either config file is unreadable, emit warning and continue with defaults. Sc
 | ---------------------------- | ------------------ | --------------------------------------------------------------- |
 | **Step 1 — Type Matching**   | `create`           | [step1-type-matching.md](references/step1-type-matching.md)     |
 | **Step 2 — File Generation** | `create`, `modify` | [step2-file-generation.md](references/step2-file-generation.md) |
-| **Step 3 — File Archive**    | `modify`           | [step3-file-archive.md](references/step3-file-archive.md)       |
+| **Step 3 — File Archive**    | `modify`           | [step3-file-archive.md](references/step3-file-archive.md) — **MUST use mv/Move-Item, NEVER cp/Copy-Item**. Verify source deleted after move. |
 
 ---
 
