@@ -18,7 +18,13 @@ A standardized skill for document naming, file generation, version management, a
 >
 > **Format validation (hard gate)**: only file extensions in the `allowed_extensions` whitelist are processed; extensions not in the whitelist are refused — even if the skill was triggered.
 
-### Scheme 1: Explicit Info
+### 1. Installation
+
+Download the repository zip file, then install via the agent's skill import feature.
+
+### 2. Usage
+
+#### Scheme 1: Explicit Info
 
 User provides full parameters; the skill executes directly:
 
@@ -30,7 +36,7 @@ User provides full parameters; the skill executes directly:
 
 Bump level: `major` (restructure) / `minor` (add/remove) / `patch` (fix typo)
 
-### Scheme 2: Natural Language (AI Auto-Judgment)
+#### Scheme 2: Natural Language (AI Auto-Judgment)
 
 User expresses intent only; AI infers type and bump level automatically:
 
@@ -49,7 +55,9 @@ User expresses intent only; AI infers type and bump level automatically:
 
 > **Trigger words**: create, generate, modify, adjust, edit, optimize, split, archive, and any scenario involving document creation or modification.
 
-## Naming Format
+## Project Details
+
+### 1. Naming Format
 
 ```
 Type_Title_YYYYMMDD_v<major.minor.patch>[.final|.refer]_Author.ext
@@ -59,7 +67,7 @@ Example: `guide_content-strategy_20260407_v1.0.0_Hawk.md`
 
 Full field definitions, fallback rules and version policy → [references/rules.md](references/rules.md)
 
-## 3-Step Workflow
+### 2. Workflow
 
 | Step | Applies to | Description | Reference |
 |------|------------|-------------|-----------|
@@ -67,23 +75,21 @@ Full field definitions, fallback rules and version policy → [references/rules.
 | **Step 2** — File Generation | `create` / `modify` | Generate compliant filename and write file | [step2-file-generation.md](references/step2-file-generation.md) |
 | **Step 3** — File Archive | `modify` | Move old version to `history/` or `refer/` | [step3-file-archive.md](references/step3-file-archive.md) |
 
-## Configuration
+### 3. Configuration
 
 Merge order: workspace config file (if `enable_workspace_path=true` & readable) → `config.local.json` → `config.json` → hard-coded defaults. All soft-fallback.
 
 Full config keys, levels and fallback chains → [SKILL.md Configuration](SKILL.md)
 
-### Directory & Type — Two Configuration Modes
-
 Directory→type mapping (`directory_tree`) supports two modes, with read priority: workspace file > config dict.
 
-**Mode 1: Workspace File**
+#### Mode 1: Workspace File
 
 Define Directory→Type Mapping and Sub-directory Structure in `references/workspace.md` using tables. This is just a reference document — as long as the format stays consistent, you can relocate it anywhere. Just set the file path in `workspace_config_path` and ensure `enable_workspace_path=true`; the script will automatically parse the file to generate `directory_tree`, overriding config dict values.
 
 ***Note: The configuration and directory tables in the document must maintain format consistency with that document. Sub-directories are optional.***
 
-**Mode 2: Config Dict**
+#### Mode 2: Config Dict
 
 Configure directly in `config.json` / `config.local.json` under `workspace.directory_tree`:
 
@@ -102,6 +108,16 @@ Configure directly in `config.json` / `config.local.json` under `workspace.direc
 > **Choosing a mode**: Workspace file mode is easier for manual editing and reading; config dict mode suits automation or pure JSON environments. Both can coexist — workspace file overrides config dict when enabled, config dict is the fallback when disabled.
 
 > **Config tip**: You can put personal values (author name, workspace path, etc.) directly in `config.json`. If you plan to push the repo to a remote (GitHub/Gitee etc.), copy `config.json` as `config.local.json`, move personal values there, and restore `config.json` to its empty-value template — this prevents local config from leaking to the remote repository.
+
+## Caveats
+
+- No `workspace_root` set: files are saved to the Desktop directory by default
+- Title empty or all special characters: falls back to `"untitled"` — no error raised
+- No `directory_tree` configured: no type prefix matching; all documents use `fallback_dir_name` (default `other`) as type prefix
+- Documents with `.final` suffix: archiving is not triggered on modification — old version stays in place
+- File format not in whitelist: skill refuses execution, even if already triggered
+- Pushing to a remote repo: move personal config values into `config.local.json` (git-ignored) to prevent info leakage
+- workspace.md format inconsistency: script parsing fails — ensure tables stay consistent with the document
 
 ## Directory Structure
 
@@ -124,13 +140,11 @@ document-naming/
 
 > `config.local.json` and `scripts/__pycache__/` are excluded by `.gitignore` and do not appear in the remote repository.
 
-## Contributing
+## About the Author
 
-1. Fork this repository
-2. Create a feature branch (`git checkout -b feature/your-feature`)
-3. Commit your changes (`git commit -m 'Add your feature'`)
-4. Push the branch (`git push origin feature/your-feature`)
-5. Create a Pull Request
+A super full-stack developer focused on AI. For more AI content, follow:
+
+<img src="./asserts/qcode.jpg" title="" alt="WeChat" width="261">
 
 ## License
 
