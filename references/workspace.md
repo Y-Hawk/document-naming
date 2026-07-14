@@ -31,7 +31,19 @@ Resolves a document's type prefix from its first-level directory. Directories ar
 
 | First-level Directory | Type Prefix | Use Case                             |
 | --------------------- | ----------- | ------------------------------------ |
-| `draft/`              | `draft`     | Drafts and in-progress writing       |
+| `00 方案/`             | `方案`       | Strategy docs, plans, frameworks     |
+| `02 草稿/`             | `draft`     | Drafts and in-progress writing       |
+| `03 定稿/`             | `定稿`       | Finalized drafts (auto `_final`)     |
+| `04 文章/`             | `文章`       | Published articles per platform      |
+| `05 报告/`             | `报告`       | Analysis reports, reviews, research  |
+| `06 规范/`             | `规范`       | Standards, specification docs        |
+| `07 素材/`             | `素材`       | Images, audio, video assets         |
+| `08 数据/`             | `数据`       | Operational data per platform        |
+| `09 记录/`             | `记录`       | Logs, meeting notes                  |
+| `10 脚本/`             | `脚本`       | Code, automation scripts             |
+| `11 日报/`             | `日报`       | Daily reports, work summaries        |
+| `98 意见/`             | `意见`       | Feedback and revision comments       |
+| `99 其它/`             | `其它`       | Unclassified files                   |
 | `material/`           | `material`  | Resources, assets, trending news     |
 | `daily/`              | `daily`     | Daily reports and work summaries     |
 
