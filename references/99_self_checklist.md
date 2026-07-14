@@ -25,6 +25,12 @@ Run after filename generation and before archiving. P0 must pass before output.
 
 ### 2. Type Matching
 
+- [ ] Document language detected from title/content before type matching
+  - **P1**: language not detected or defaulted to English → re-detect from content
+  - **P2**: mixed-language document → use primary language (majority of content)
+- [ ] Directory and type adapted to detected language
+  - **P1**: Chinese document placed in English-named directory → switch to Chinese directory name
+  - **P1**: English document placed in Chinese-named directory → switch to English directory name
 - [ ] Type prefix resolved from `directory_tree` or kept as-is
   - **P1**: type matches no known prefix → check if fallback_dir_name is correct
   - **P2**: type could match multiple entries → document ambiguity

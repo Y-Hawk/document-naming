@@ -44,9 +44,9 @@ Type Matching → File Generation → File Archive
                             (modify only)
 ```
 
-### Phase 1. Type Matching —— Resolve type prefix
+### Phase 1. Type Matching —— Resolve type prefix and language
 
-Load `references/03_step1-type-matching.md`. Match caller type against `directory_tree` type entries. No match → use `fallback_dir_name`. No type provided → use fallback.
+Load `references/03_step1-type-matching.md`. Detect document language from title/content. Match caller type against `directory_tree` type entries. **Directory and type must be language-adapted**: detect the document's primary language (Chinese → use Chinese directory names; English → use English directory names). No match → use `fallback_dir_name`. No type provided → use fallback.
 
 ### Phase 2. File Generation —— Build compliant filename
 
@@ -76,6 +76,7 @@ Phase 1 → Type found? → yes → Phase 2
 | 3 | Config merge is soft-fail — missing config never halts execution |
 | 4 | Filename format strictly follows `{type}_{title}_{date}_v{x.y.z}_{author}.{ext}` |
 | 5 | Version bump follows semver: major (breaking), minor (feature), patch (fix) |
+| 6 | Directory and type must match document language — detect language from title/content, not assume English |
 
 ---
 
