@@ -18,6 +18,8 @@ Commands:
                                            # (config → context → default)
     upsert    --l1 <type> [--l2 <type>]    # ensure L1/L2 exists (01-numbering),
                                            # write back to workspace.md
+    scan      [--apply]                    # sync L1/L2 dirs on disk into the
+                                           # tree (rules 1-4); --apply writes
 """
 
 import json, re, sys
@@ -38,7 +40,7 @@ _SKILL_ROOT = _skill_root()
 # Reserved numeric prefixes (never auto-assigned to a *new* directory)
 _L1_RESERVED_MAX = 98   # 98 Opinion / 99 Other are reserved L1 buckets
 _L2_RESERVED_MAX = 99   # 99 … is the reserved "Other" catch-all at L2
-_FALLBACK_TYPE = "Other"  # used when no type can be resolved
+_FALLBACK_TYPE = "其它"  # fallback L1 bucket (99 其它) — used when no type can be resolved
 
 # System user root directory per platform — the base under
 # which the default `DocumentSpace` folder is created by the skill. `Path.home()`
@@ -340,6 +342,29 @@ def _next_number(existing: list[int], reserved_max: int) -> int:
     return (max(usable) if usable else 0) + 1
 
 
+# System / application-class directories that must never be processed
+# (rule 3). Dot-prefixed dirs (e.g. `.obsidian`) are caught separately by name.
+_APP_DIRS = {"Excalidraw", "node_modules", ".git", ".idea", ".vscode"}
+
+
+def _classify_dir(name: str) -> str:
+    """Classify a directory name for the root-scan sync (rules 3 & 4).
+
+    Returns one of:
+      "skip_dot"       — name starts with "." (system/app config) → rule 3
+      "skip_app"       — known app-class dir (e.g. Excalidraw)    → rule 3
+      "skip_unnumbered"— no numeric prefix, not a content category → rule 3
+      "content"        — numbered content directory (process it)
+    """
+    if name.startswith("."):
+        return "skip_dot"
+    if name in _APP_DIRS:
+        return "skip_app"
+    if _prefix_of(name) is None:
+        return "skip_unnumbered"
+    return "content"
+
+
 # =============================================================================
 #  Core API
 # =============================================================================
@@ -493,7 +518,8 @@ def upsert_dir(l1_type: str, l2_type: str = "") -> dict:
     - If the directory already exists (matched by type), returns its key unchanged.
     - Otherwise creates it with a zero-padded 2-digit numeric prefix
       starting from `01`, sequential by sibling (forced numbering convention),
-      and writes the updated tree back to the workspace doc.
+      and writes the updated tree back to the workspace doc (only when a new
+      directory was actually created).
 
     Args:
         l1_type: descriptive L1 type, e.g. "Data" (without the numeric prefix)
@@ -554,8 +580,104 @@ def upsert_dir(l1_type: str, l2_type: str = "") -> dict:
         result["l2"] = l2_key
 
     result["created"] = created
-    _write_workspace_tree(tree)
+    if created:                       # persist only when a directory was added
+        _write_workspace_tree(tree)
     return result
+
+
+def scan_workspace(apply: bool = False) -> dict:
+    """Scan the resolved root and sync L1/L2 directories into the tree.
+
+    Implements the root-scan sync rules:
+      1) number per convention — existing disk numbers are preserved as-is
+      2) mirror the directory tree from the real disk (add / update / remove)
+      3) skip dot-prefixed dirs (`.obsidian`) and system/app-class dirs
+         (`Excalidraw`, …) — never processed
+      4) only L1/L2 — L3+ directories are reported as excluded, never added
+
+    The tree is rebuilt to **mirror** the disk exactly: every numbered content
+    L1/L2 directory on disk is reflected, and any tree entry that no longer
+    exists on disk is removed (the tree is functional data that must track the
+    real folders). The `history` / `refer` exempt archive dirs are never added
+    (they are L3+ and created at archive time).
+
+    Args:
+        apply: when True, write the mirrored tree back to workspace.md.
+               when False (default), only report what *would* change.
+
+    Returns a report dict: root, added, updated, removed, skipped, l3_excluded.
+    """
+    root = Path(_resolve_workspace_root()["root"])
+    if not root.exists():
+        return {"error": f"workspace root not found: {root}"}
+
+    old = _parse_workspace_tree()
+    tree: dict = {}
+    added: list[str] = []
+    updated: list[str] = []
+    skipped: list[list[str]] = []
+    l3_excluded: list[str] = []
+
+    for d in sorted(root.iterdir()):
+        if not d.is_dir():
+            continue
+        if _classify_dir(d.name) != "content":
+            skipped.append([d.name, _classify_dir(d.name)])
+            continue
+        l1_num = f"{_prefix_of(d.name):02d}"
+        tree[l1_num] = {"name": d.name, "type": _core_name(d.name), "sub": {}}
+        subs = tree[l1_num]["sub"]
+        for s in sorted(d.iterdir()):
+            if not s.is_dir():
+                continue
+            if _classify_dir(s.name) != "content":
+                skipped.append([s.name, _classify_dir(s.name)])
+                continue
+            s_num = f"{_prefix_of(s.name):02d}"
+            subs[s_num] = {"name": s.name}
+            # Rule 4: L3+ is out of scope — record but never add.
+            for l3 in s.iterdir():
+                if l3.is_dir():
+                    l3_excluded.append(str(l3.relative_to(root)))
+
+    # Diff against the previous tree for the report.
+    for k in tree:
+        if k not in old:
+            added.append(f"L1 {tree[k]['name']}")
+        elif old[k].get("name") != tree[k]["name"]:
+            updated.append(f"L1 {tree[k]['name']}")
+        for sk in tree[k].get("sub", {}):
+            if sk not in old.get(k, {}).get("sub", {}):
+                added.append(f"L2 {k}/{tree[k]['sub'][sk]['name']}")
+            elif old[k]["sub"][sk].get("name") != tree[k]["sub"][sk]["name"]:
+                updated.append(f"L2 {k}/{tree[k]['sub'][sk]['name']}")
+    removed = _tree_diff_removed(old, tree)
+
+    if apply and (added or updated or removed):
+        _write_workspace_tree(tree)
+
+    return {
+        "root": str(root),
+        "added": added,
+        "updated": updated,
+        "removed": removed,
+        "skipped": skipped,
+        "l3_excluded": l3_excluded,
+        "applied": bool(apply and (added or updated or removed)),
+    }
+
+
+def _tree_diff_removed(old: dict, new: dict) -> list[str]:
+    """Entries present in *old* but absent from *new* (removed by the mirror)."""
+    removed: list[str] = []
+    for k, v in old.items():
+        if k not in new:
+            removed.append(f"L1 {v.get('name', k)}")
+            continue
+        for sk, sv in v.get("sub", {}).items():
+            if sk not in new.get(k, {}).get("sub", {}):
+                removed.append(f"L2 {k}/{sv.get('name', sk)}")
+    return removed
 
 
 # =============================================================================
@@ -659,6 +781,11 @@ def _cmd_upsert() -> None:
     ))
 
 
+def _cmd_scan() -> None:
+    apply = "--apply" in sys.argv[2:]
+    print(json.dumps(scan_workspace(apply=apply), ensure_ascii=False))
+
+
 def main() -> None:
     cmds = {
         "generate": _cmd_generate,
@@ -667,6 +794,7 @@ def main() -> None:
         "tree":     _cmd_tree,
         "root":     _cmd_root,
         "upsert":   _cmd_upsert,
+        "scan":     _cmd_scan,
     }
 
     if len(sys.argv) < 2:

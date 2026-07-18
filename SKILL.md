@@ -41,6 +41,8 @@ also the authoritative source for the **workspace root** (`## Workspace Root`)
 and the **archive/refer directory names** (`## Workspace Config`). See it for the
 schema, the numbering convention, and those settings.
 
+> The directory tree mirrors the real (Chinese-named) folders on disk — each L1's `type` is that folder's name minus the numeric prefix. Keep the two in sync with `naming.py scan` (see FAQ).
+
 ### Workspace Root Resolution
 
 Before composing any save path, resolve the absolute root under which all L1/L2
@@ -87,7 +89,7 @@ Type Matching → File Generation → File Archive
 
 ### Phase 1. Type Matching —— Resolve type prefix and language
 
-Load `references/type-matching.md`. Detect the document language from title/content. Resolve the type prefix:
+Detect the document language from title/content. Resolve the type prefix:
 
 - **Caller provides a type** → normalize against `directory_tree` type entries (match → mapped prefix; no match → keep caller type).
 - **No type provided** → **auto-detect from content** (see §Auto-Detect Flow below). Do NOT silently fall back to a fixed bucket.
@@ -208,9 +210,7 @@ Return JSON with: name, type, title, date, version, author, ext, save_path, arch
 | Document | Purpose | When to Load |
 |----------|---------|--------------|
 | `references/rules.md` | Naming format, field definitions, version policy | Always |
-| `references/overview.md` | Skill overview & `naming.py` command reference | Onboarding |
 | `references/workspace.md` | **Directory tree (authoritative, auto-updated)**, directory→type mapping, directory numbering convention | Always |
-| `references/type-matching.md` | Type prefix resolution | Phase 1 |
 | `references/file-generation.md` | Filename generation and save path | Phase 2 |
 | `references/file-archive.md` | Old version archive and suffix routing | Phase 3 |
 | `references/self_checklist.md` | Quality self-checklist (P0/P1/P2) | Before delivery |
@@ -229,4 +229,6 @@ Just create a document and let the skill auto-detect the type, or tell it the ty
 Author / extension / whitelist live in this SKILL.md `### Configuration` table (parsed by `naming.py` at startup, no JSON config files). Workspace-level settings — the root (`## Workspace Root`) and the archive/refer directory names (`## Workspace Config`) — live in `references/workspace.md`.
 
 **Q: The workspace.md tree looks out of sync — what do I do?**
-Run `naming.py tree` to inspect the parsed tree. If a directory was created outside the skill, add it with `naming.py upsert --l1 <type>` (and `--l2 <type>`). Hand-editing the JSON block is only for fixing parse errors.
+Run `naming.py scan` to preview a sync (dry-run, no writes). It mirrors the real root folders into the tree, applying the four sync rules: (1) preserve each directory's existing number; (2) add/update/remove tree entries to match the disk; (3) skip dot-prefixed dirs (`.obsidian`) and system/app-class dirs (`Excalidraw`); (4) only L1/L2 — L3+ is reported but never added. Run `naming.py scan --apply` to write the sync. For a single new category you can also use `naming.py upsert --l1 <type> [--l2 <type>]`. Hand-editing the JSON block is only for fixing parse errors.
+
+> **The tree mirrors the real folders.** `references/workspace.md`'s `## Directory Tree` is rebuilt to match the actual (Chinese-named) folders on disk — the `type` field of each L1 equals that folder's name with the numeric prefix stripped. `naming.py scan` is the single way to keep the two in lock-step.

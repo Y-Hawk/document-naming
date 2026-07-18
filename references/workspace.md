@@ -38,112 +38,123 @@ table no longer carries them). The directory tree source is fixed at
 
 The machine-readable, authoritative directory layout. `naming.py` reads and writes this block.
 
+> **This tree mirrors the real folders on disk** (Chinese names, numbers preserved). It is rebuilt by `naming.py scan [--apply]`, which applies the four sync rules: keep each directory's existing number; add/update/remove entries to match the disk; skip dot-prefixed and system/app-class dirs (`Excalidraw`, `.obsidian`); and include only L1/L2 — L3+ is reported but never added. Run `naming.py scan` (dry-run) then `naming.py scan --apply` (write) to re-sync.
+
 ```json
 {
   "01": {
-    "name": "01 Plan",
-    "type": "Plan",
+    "name": "01 方案",
+    "type": "方案",
     "sub": {
       "01": {
-        "name": "01 Operations Plan"
+        "name": "01 运营方案"
       },
       "02": {
-        "name": "02 Topic Plan"
+        "name": "02 专题方案"
       },
       "03": {
-        "name": "03 Skill Plan"
+        "name": "03 技能方案"
       },
       "99": {
-        "name": "99 Reference Docs"
+        "name": "99 参考文档"
       }
     }
   },
   "02": {
-    "name": "02 Question Bank",
-    "type": "Question Bank",
+    "name": "02 题库",
+    "type": "题库",
     "sub": {}
   },
   "03": {
-    "name": "03 Article",
-    "type": "Article",
+    "name": "03 文章",
+    "type": "文章",
     "sub": {
       "01": {
         "name": "01 WorkBuddy"
       },
       "02": {
-        "name": "02 AI's Past and Present"
+        "name": "02 AI的前世今生"
       },
       "03": {
-        "name": "03 AI Career Series"
-      },
-      "99": {
-        "name": "99 Other"
+        "name": "03 AI求职专题"
       },
       "04": {
-        "name": "04 Intro Course"
+        "name": "04 Axure教程"
+      },
+      "05": {
+        "name": "05 AI基础重构专题"
+      },
+      "06": {
+        "name": "06 提示词专题"
+      },
+      "99": {
+        "name": "99 其它"
       }
     }
   },
   "04": {
-    "name": "04 Standard",
-    "type": "Standard",
+    "name": "04 规范",
+    "type": "规范",
     "sub": {
-      "history": {
-        "name": "history"
-      },
       "01": {
-        "name": "01 OpenClaw Config"
+        "name": "01 OpenClaw配置"
+      },
+      "02": {
+        "name": "02 写作规范"
+      },
+      "03": {
+        "name": "03 视觉规范"
       }
     }
   },
   "05": {
-    "name": "05 Asset",
-    "type": "Asset",
+    "name": "05 素材",
+    "type": "素材",
     "sub": {
       "01": {
-        "name": "01 Article Illustrations"
+        "name": "01 文章配图"
       },
       "02": {
-        "name": "02 Reference List"
+        "name": "02 参考清单"
       },
       "99": {
-        "name": "99 Other"
+        "name": "99 其它"
       }
     }
   },
   "98": {
-    "name": "98 Opinion",
-    "type": "Opinion",
+    "name": "98 意见",
+    "type": "意见",
     "sub": {
       "01": {
-        "name": "01 Skill"
+        "name": "01 技能"
       },
       "02": {
-        "name": "02 Article"
+        "name": "02 文章"
       },
       "03": {
-        "name": "03 Plan"
+        "name": "03 方案"
       },
       "04": {
-        "name": "04 Script"
+        "name": "04 脚本"
       }
     }
   },
   "99": {
-    "name": "99 Other",
-    "type": "Other",
+    "name": "99 其它",
+    "type": "其它",
     "sub": {
       "01": {
         "name": "01 PMP"
       },
       "02": {
-        "name": "02 Resignation"
+        "name": "02 离职"
       },
       "03": {
-        "name": "03 Resume"
+        "name": "03 简历"
       },
       "04": {
-        "name": "04 Music"
+        "name": "04 音乐"
       }
     }
   }

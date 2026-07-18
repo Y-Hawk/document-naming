@@ -69,7 +69,7 @@ Full field definitions, fallback rules and version policy → [references/rules.
 
 | Stage | Applies to | Description | Reference |
 |------|------------|-------------|-----------|
-| **Type Matching** | `create` | Match type prefix from the directory tree (§Type Resolution in `references/workspace.md`; auto-detect if absent) | [type-matching.md](references/type-matching.md) |
+| **Type Matching** | `create` | Match type prefix from the directory tree (§Type Resolution in `references/workspace.md`; auto-detect if absent) | [workspace.md](references/workspace.md) |
 | **File Generation** | `create` / `modify` | Generate compliant filename and write file | [file-generation.md](references/file-generation.md) |
 | **File Archive** | `modify` | Move old version to `history/` or `refer/` | [file-archive.md](references/file-archive.md) |
 
@@ -78,6 +78,22 @@ Full field definitions, fallback rules and version policy → [references/rules.
 This skill has **no JSON config files** — all runtime configuration lives in the `## Configuration` table of `SKILL.md` (single source, parsed at startup by `naming.py`). Edit that table to change author, extension whitelist, archive dirs, workspace root, etc. The directory tree is the authoritative source in `references/workspace.md` and is auto-synced by `naming.py upsert`.
 
 **Workspace root — 3-tier resolution**: `workspace_root` (config) → `## Workspace Root` in `references/workspace.md` (context) → `<system user root>/DocumentSpace` (default; a `DocumentSpace` folder is created under the OS user home first, never the bare Desktop/user-root). Full detail and the per-OS root table → `SKILL.md` → Workspace Root Resolution & System User Root Directories. Inspect the resolved root with `naming.py root`.
+
+## CLI Command Reference
+
+Every command wraps `scripts/naming.py` and prints JSON (`{"error": "..."}` on failure). Run from the skill root.
+
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `generate <title> <ext> --type <t> [--author <a>] [--date YYYYMMDD] [--suffix final\|refer]` | Build a new compliant filename (no disk I/O) | `naming.py generate "Content Strategy" md --type Plan --author Hawk` |
+| `bump <filename> <major\|minor\|patch>` | Bump version and refresh the date | `naming.py bump "Plan_ContentStrategy_20260718_v1.0.0_Hawk.md" minor` |
+| `archive <file_path>` | Move the old version to `history/`/`refer/` (move, never copy) | `naming.py archive "Plan_ContentStrategy_20260718_v1.0.0_Hawk.md"` |
+| `tree` | Print the parsed directory tree (JSON) | `naming.py tree` |
+| `root` | Resolve the workspace root (config → context → default) | `naming.py root` |
+| `upsert --l1 <t> [--l2 <t>]` | Ensure an L1/L2 directory exists (01-numbering) and write it back to `workspace.md` | `naming.py upsert --l1 Article --l2 WorkBuddy` |
+| `scan [--apply]` | Sync L1/L2 dirs on disk into the tree (rules 1–4); dry-run by default, `--apply` writes | `naming.py scan` / `naming.py scan --apply` |
+
+> `references/workspace.md`'s `## Directory Tree` mirrors the real (Chinese-named) folders on disk — keep the two in lock-step with `naming.py scan` (dry-run first, then `--apply`).
 
 ## Caveats
 
@@ -98,8 +114,6 @@ document-naming/
 ├── LICENSE                       # MIT License
 ├── references/
 │   ├── rules.md                     # Naming format specification
-│   ├── overview.md                  # Skill overview & command reference
-│   ├── type-matching.md             # Type matching (incl. content auto-detect)
 │   ├── file-generation.md           # File generation and save path
 │   ├── file-archive.md              # File archive
 │   ├── workspace.md                 # Directory tree authoritative source (auto-synced)
