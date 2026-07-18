@@ -1,149 +1,121 @@
 # Document Naming
 
-文档命名、文件生成、版本管理与归档的规范化技能。为内容创作工作空间提供统一命名格式、自动版本递增与旧版本归档能力。
+A standardized skill for document naming, file generation, version management, and archiving. Provides unified filename formats, automatic version bumping, and old-version archiving for content creation workspaces.
 
-> **English documentation**: [README.en.md](README.en.md)
+## Features
 
-## 特性
+- 📝 **Unified naming format** — `Type_Title_YYYYMMDD_v<major.minor.patch>[.final|.refer]_Author.ext`, automatically cleans illegal characters and whitespace
+- 🔄 **Semantic versioning** — `major/minor/patch` three-level bumping, optional `.final` (approved) and `.refer` (reference) suffixes
+- 📦 **Auto archiving** — Old versions are automatically moved to `history/` or `refer/` subdirectories when a document is modified, with zero residue
+- ⚙️ **Single config source** — all runtime config lives in SKILL.md (parsed by the script at startup); the directory tree lives in `references/workspace.md` and is auto-synced. No JSON config files.
+- 🔧 **Skill invocation** — Trigger naming, version bumping, and archiving via natural-language prompts; no manual script execution needed
 
-- 📝 **统一命名格式** — `Type_Title_YYYYMMDD_v<major.minor.patch>[_suffix]_Author.ext`，自动清理非法字符与空白
-- 🔄 **语义化版本管理** — `major/minor/patch` 三级递增，可选 `.final`（定稿）与 `.refer`（参考）后缀
-- 📦 **自动归档** — 修改文档时旧版本自动移入 `history/` 或 `refer/`，零残留
-- ⚙️ **配置驱动** — 多来源合并，全部软回退，不会因配置缺失而中断
-- 🔧 **技能调用** — 自然语言提示词触发，无需手动执行脚本
+## Quick Start
 
-## 快速上手
+> **Iron rule**: All operations involving document creation or modification must invoke this skill first. Never construct filenames manually, never skip the 3-step workflow, never skip the skill for any change — regardless of perceived size.
+>
+> **Format validation (hard gate)**: only whitelisted extensions are processed; others are refused. Rule → `references/rules.md` §Extension and `SKILL.md` → Constraints #1.
 
-> **铁律**：涉及文档内容的一切操作（新建、修改、调整、优化等），必须先调用此技能。不自行构造文件名，不跳过三步工作流，不区分"大改""小改"。
-> 
-> **格式强制验证**：只有 `allowed_extensions` 白名单中的文件类型才会被处理，不在白名单中的扩展名即使触发了技能也拒绝执行。
+### 1. Installation
 
-### 一、安装
+Download the repository zip file, then install via the agent's skill import feature.
 
-下载仓库 zip 文件，通过智能体的技能导入功能完成安装。
+### 2. Usage
 
-### 二、使用方法
+#### Scheme 1: Explicit Info
 
-#### 方案一：明确信息
+User provides full parameters; the skill executes directly:
 
-用户提供完整参数，技能直接执行：
+| Operation | Prompt Template | Example |
+|-----------|----------------|---------|
+| Create document | `Create {type} document: {title}` | `Create guide document: Content Strategy` |
+| Modify document | `Modify {filename}, {bump_level}` | `Modify guide_Content-Strategy_..._v1.0.0_Hawk.md, minor` |
+| Archive old version | `Archive {filename}` | `Archive guide_Content-Strategy_..._v1.0.0_Hawk.md` |
 
-| 操作    | 提示词模板            | 示例                                   |
-| ----- | ---------------- | ------------------------------------ |
-| 新建文档  | `新建{类型}文档：{标题}`  | `新建方案文档：内容策略`                        |
-| 修改文档  | `修改{文件名}，{递增级别}` | `修改方案_内容策略_..._v1.0.0_Hawk.md，minor` |
-| 归档旧版本 | `归档{文件名}`        | `归档方案_内容策略_..._v1.0.0_Hawk.md`       |
+Bump level: `major` (restructure) / `minor` (add/remove) / `patch` (fix typo)
 
-递增级别：`major`（重构） / `minor`（增删） / `patch`（修错字）
+#### Scheme 2: Natural Language (AI Auto-Judgment)
 
-#### 方案二：自然语言（AI 自动判断）
+User expresses intent only; AI infers type and bump level automatically:
 
-用户只表达意图，AI 自动推断类型与递增级别：
+| Operation | Prompt Template | Example |
+|-----------|----------------|---------|
+| Create document | `Create a document about {title}` | `Create a document about content strategy` |
+| Modify document | `Modify {filename}` | `Modify content strategy document, rewrote half of it` |
 
-| 操作   | 提示词模板         | 示例               |
-| ---- | ------------- | ---------------- |
-| 新建文档 | `新建关于{标题}的文档` | `新建关于内容策略的文档`    |
-| 修改文档 | `修改{文件名}`     | `修改内容策略文档，重写了一半` |
+**Type inference**: When no type is given, the skill auto-detects it from the document content and asks the user to confirm (timeout → auto-execute); if unclassifiable, falls back to `Other`.
 
-**类型推断**：从工作空间配置 Directory→Type 映射匹配 → 无匹配则用 `fallback_dir_name`（默认 `other`）
+**Bump inference**: Rewrite/restructure → `major` · Add/remove sections → `minor` · Fix typos/format → `patch`
 
-**递增推断**：重写/重构 → `major` · 补充/增删 → `minor` · 改错字/调格式 → `patch`
-
-> 修改文档后归档自动触发，无需单独调用。
+> Archive is automatically triggered after modifying a document — no separate invocation needed.
 
 ---
 
-> **触发词**：新建、创建、生成、修改、调整、编辑、优化、拆分、归档，以及任何涉及文档新建或修改的场景。
+> **Trigger words**: create, generate, modify, adjust, edit, optimize, split, archive, and any scenario involving document creation or modification.
 
-## 项目说明
+## Project Details
 
-### 一、命名格式
+### 1. Naming Format
 
 ```
 Type_Title_YYYYMMDD_v<major.minor.patch>[.final|.refer]_Author.ext
 ```
 
-示例：`guide_claw-content-strategy_20260407_v1.0.0_Hawk.md`
+Example: `guide_content-strategy_20260407_v1.0.0_Hawk.md`
 
-完整字段定义、回退规则与版本策略 → [references/rules.md](references/rules.md)
+Full field definitions, fallback rules and version policy → [references/rules.md](references/rules.md)
 
-### 二、工作流
+### 2. Workflow
 
-| 步骤                | 适用操作                | 说明                          | 详细文档                                                            |
-| ----------------- | ------------------- | --------------------------- | --------------------------------------------------------------- |
-| **Step 1** — 类型匹配 | `create`            | Directory→Type 映射匹配类型前缀     | [step1-type-matching.md](references/step1-type-matching.md)     |
-| **Step 2** — 文件生成 | `create` / `modify` | 生成合规文件名并写入                  | [step2-file-generation.md](references/step2-file-generation.md) |
-| **Step 3** — 文件归档 | `modify`            | 旧版本移入 `history/` 或 `refer/` | [step3-file-archive.md](references/step3-file-archive.md)       |
+| Stage | Applies to | Description | Reference |
+|------|------------|-------------|-----------|
+| **Type Matching** | `create` | Match type prefix from the directory tree (§Type Resolution in `references/workspace.md`; auto-detect if absent) | [type-matching.md](references/type-matching.md) |
+| **File Generation** | `create` / `modify` | Generate compliant filename and write file | [file-generation.md](references/file-generation.md) |
+| **File Archive** | `modify` | Move old version to `history/` or `refer/` | [file-archive.md](references/file-archive.md) |
 
-### 三、配置
+### 3. Configuration
 
-合并顺序：工作空间配置文件（`enable_workspace_path=true` 且可读） → `config.local.json` → `config.json` → 硬编码默认值。全部软回退。
+This skill has **no JSON config files** — all runtime configuration lives in the `## Configuration` table of `SKILL.md` (single source, parsed at startup by `naming.py`). Edit that table to change author, extension whitelist, archive dirs, workspace root, etc. The directory tree is the authoritative source in `references/workspace.md` and is auto-synced by `naming.py upsert`.
 
-完整配置键、层级与回退链 → [SKILL.md Configuration 章节](SKILL.md)
+**Workspace root — 3-tier resolution**: `workspace_root` (config) → `## Workspace Root` in `references/workspace.md` (context) → `<system user root>/DocumentSpace` (default; a `DocumentSpace` folder is created under the OS user home first, never the bare Desktop/user-root). Full detail and the per-OS root table → `SKILL.md` → Workspace Root Resolution & System User Root Directories. Inspect the resolved root with `naming.py root`.
 
-目录→类型映射（`directory_tree`）支持两种配置方式，读取时优先级：workspace 文件 > config dict。
+## Caveats
 
-#### 模式一：workspace 文件
+- All config lives in `SKILL.md` (`## Configuration`); no JSON files — edit that table to change settings.
+- Root resolves config → context → default `<user-home>/DocumentSpace`; see `SKILL.md` → Workspace Root Resolution.
+- Directory tree authoritative source: `references/workspace.md` (auto-synced); inspect/fix with `naming.py tree`.
+- Title empty / all special chars → falls back to `"untitled"`.
+- No type given → auto-detect from content + confirm (timeout → auto-execute); unclassifiable → `Other`.
+- `.final` suffix → archiving not triggered on modify; old version stays.
+- Extension not in whitelist → execution refused (hard gate).
 
-在 `references/workspace.md` 中以表格形式定义 Directory→Type Mapping 和 Sub-directory Structure。这里只是参考文档，在格式保持一致的前提下，可更改后存放在任何位置，只需把文件路径配置到`workspace_config_path`且`enable_workspace_path=true`，脚本会自动解析该文件生成 `directory_tree`，优先覆盖 config dict 中的值。
-
-#### 模式二：config dict
-
-直接在 `config.json` / `config.local.json` 的 `workspace.directory_tree` 字典中配置，格式：
-
-```json
-{
-  "draft": {"name": "draft", "type": "draft", "sub": {"<topic>": {"name": "<topic>"}}},
-  "material": {"name": "material", "type": "material", "sub": {"illustration": {"name": "illustration"}, "ai-hot": {"name": "ai-hot"}}},
-  "daily": {"name": "daily", "type": "daily", "sub": {}}
-}
-```
-
-- `name`：目录名（也作为字典键）
-- `type`：文件名类型前缀（Step 1 仅用此列匹配类型）
-- `sub`：子目录嵌套字典，`{}` 表示无子目录
-
-> **选择建议**：workspace 文件模式便于人工编辑和阅读；config dict 模式适合自动化或纯 JSON 环境。两种模式可共存——workspace 文件启用时覆盖 config dict 值，关闭时回退到 config dict。
-
-> **配置建议**：可直接在 `config.json` 中填写个人配置值（如作者名、工作空间路径）。若需要将仓库推送至远程（GitHub/Gitee 等），建议将 `config.json` 复制为 `config.local.json`，再将个人配置值移入 `config.local.json`、`config.json` 恢复为空值模板，避免本地配置信息泄露至远程仓库。
-
-## 注意事项
-
-- 不设置 `workspace_root`，文件将默认保存到桌面目录
-- 标题为空或全为特殊字符，自动回退为 `"untitled"`，不会报错中断
-- 不配置 `directory_tree`，无法匹配类型前缀，所有文档的类型前缀使用 `fallback_dir_name`（默认 `other`）
-- `.final` 后缀的文档，修改时不会触发归档，旧版本保留在原目录不动
-- 不在白名单的文件格式，技能直接拒绝执行，即使已被触发
-- 推送到远程仓库时，应将个人配置移入 `config.local.json`（git-ignored），避免信息泄露
-- workspace.md 格式不一致，脚本解析失败，需确保表格格式与文档保持一致
-
-## 目录结构
+## Directory Structure
 
 ```
 document-naming/
-├── SKILL.md                      # 技能控制文件
-├── config.json                   # 出厂默认配置
-├── README.md                     # 中文说明
-├── README.en.md                  # 英文说明
-├── LICENSE                       # MIT 许可证
+├── SKILL.md                      # Skill control file (includes the Configuration single source)
+├── README.md                     # English documentation (canonical)
+├── LICENSE                       # MIT License
 ├── references/
-│   ├── rules.md                  # 命名格式规范
-│   ├── step1-type-matching.md    # Step 1 类型匹配
-│   ├── step2-file-generation.md  # Step 2 文件生成
-│   ├── step3-file-archive.md     # Step 3 文件归档
-│   └── workspace.md              # 工作空间配置参考
+│   ├── rules.md                     # Naming format specification
+│   ├── overview.md                  # Skill overview & command reference
+│   ├── type-matching.md             # Type matching (incl. content auto-detect)
+│   ├── file-generation.md           # File generation and save path
+│   ├── file-archive.md              # File archive
+│   ├── workspace.md                 # Directory tree authoritative source (auto-synced)
+│   └── self_checklist.md            # Quality self-checklist
 └── scripts/
-    └── naming.py                 # 命名工具脚本
+    └── naming.py                 # Naming utility script (parses SKILL.md + workspace.md)
 ```
 
-> `config.local.json` 和 `scripts/__pycache__/` 被 `.gitignore` 排除，不出现在远程仓库中。
+> `scripts/__pycache__/` is excluded by `.gitignore`. This skill no longer contains any local config file.
 
-## 关于作者
+## About the Author
 
-一个专注于AI的超级全栈，想了解更多关于AI的内容，关注小哥：
+A super full-stack developer focused on AI. For more AI content, follow:
 
-<img src="./asserts/qcode.jpg" title="" alt="公众号" width="261">
+<img src="./assets/qcode.jpg" title="" alt="WeChat" width="261">
 
-## 许可证
+## License
 
 [MIT License](LICENSE)

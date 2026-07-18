@@ -1,10 +1,9 @@
-# Step 3 — File Archive
-
+# File Archive
 **Applies to: `modify` only.**
 
-**Merged config** = the flattened dict returned by `naming.py` `_load_config()`. After flattening, all workspace keys (`archive_dir_name`, `refer_dir_name`, etc.) are top-level — never accessed via `config["workspace"]`.
+**Merged config** = the dict returned by `naming.py` `_load_config()`. Settings such as `archive_dir_name` / `refer_dir_name` are top-level — never accessed via a nested `config["workspace"]` key.
 
-After Step 2 creates the new versioned file, move the old file to a sub-directory based on its suffix.
+After File Generation creates the new versioned file, move the old file to a sub-directory based on its suffix.
 
 ---
 
