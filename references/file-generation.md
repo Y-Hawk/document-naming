@@ -5,7 +5,7 @@
 
 ## Prerequisite
 
-**Merged config** = values parsed by `naming.py` from the SKILL.md `## Configuration` table. The `directory_tree` is read from `references/workspace.md`.
+**Merged config** = values parsed by `naming.py` by merging `config.json` (baseline) with `config.local.json` (per-machine override). The `directory_tree` and `workspace_root` live in the same JSON files.
 
 **Hard gate (extension)**: any extension not in `allowed_extensions` is refused before any step. Rule + whitelist → `references/rules.md` §Extension.
 
@@ -28,11 +28,11 @@
 
 | Level | Rule |
 |-------|------|
-| **L1** | Type found in `directory_tree` → mapped directory. Not found → auto-detect + confirm, then `naming.py upsert --l1 <type>` creates it with `01` numbering and writes to `references/workspace.md` |
+| **L1** | Type found in `directory_tree` → mapped directory. Not found → auto-detect + confirm, then `naming.py upsert --l1 <type>` creates it with `01` numbering and writes to `config.local.json` |
 | **L2** | Follow the matched L1 entry's `sub` field. If the requested sub does not exist → auto-detect + confirm, then `naming.py upsert --l1 <l1type> --l2 <l2type>` creates it (forced `01` numbering) and writes back |
-| **Numbering (L1/L2)** | Any directory the skill **creates by default** MUST carry a zero-padded 2-digit numeric prefix starting from `01`, sequential by sibling. Reserved dirs (`history`, `refer`, `99_*` fallback) are exempt. `upsert` enforces this automatically — see `references/workspace.md` §Directory Numbering Convention |
+| **Numbering (L1/L2)** | Any directory the skill **creates by default** MUST carry a zero-padded 2-digit numeric prefix starting from `01`, sequential by sibling. Reserved dirs (`history`/`refer` in English, or their Chinese equivalents, and the `99_*` fallback) are exempt. `upsert` enforces this automatically — see `references/workspace.md` §Directory Numbering Convention |
 
-> The `upsert` command is idempotent: passing an existing type returns the existing directory key without changes. Use it both to create new directories and to guarantee the workspace doc stays in sync.
+> The `upsert` command is idempotent: passing an existing type returns the existing directory key without changes. Use it both to create new directories and to guarantee the tree in `config.local.json` stays in sync.
 
 ---
 

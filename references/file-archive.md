@@ -1,7 +1,7 @@
 # File Archive
 **Applies to: `modify` only.**
 
-**Merged config** = the dict returned by `naming.py` `_load_config()`. Settings such as `archive_dir_name` / `refer_dir_name` are top-level — never accessed via a nested `config["workspace"]` key.
+**Merged config** = the dict returned by `naming.py` `_load_config()` (merge of `config.json` + `config.local.json`). Archive / refer folder names are **not** config keys — they are fixed rules matched to the document's language.
 
 After File Generation creates the new versioned file, move the old file to a sub-directory based on its suffix.
 
@@ -19,11 +19,14 @@ After File Generation creates the new versioned file, move the old file to a sub
 
 ### Suffix Routing
 
-| Suffix | Target | Default |
-|--------|--------|---------|
-| (none) | `<source_parent>/<archive_dir_name>/` | `history` |
-| `.refer` | `<source_parent>/<refer_dir_name>/` | `refer` |
-| `.final` | **Not moved** — stays in place | — |
+Target folder name is matched to the **document's language**, decided by the
+source filename: any CJK character (`[\u4e00-\u9fff]`) → Chinese, else English.
+
+| Suffix | Chinese filename | English filename |
+|--------|------------------|------------------|
+| (none) | `<source_parent>/<Chinese archive folder>/` | `<source_parent>/history/` |
+| `.refer` | `<source_parent>/<Chinese refer folder>/` | `<source_parent>/refer/` |
+| `.final` | **Not moved** — stays in place | **Not moved** — stays in place |
 
 > Suffix routing defined in [rules.md](rules.md) Version Policy → Suffix table.
 

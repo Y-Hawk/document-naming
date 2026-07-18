@@ -37,7 +37,7 @@ Run after filename generation and before archiving. P0 must pass before output.
   - **P2**: type could match multiple entries → document ambiguity
 - [ ] No type supplied → skill MUST propose a type and **confirm with the user (timeout → auto-execute) before creating any new directory**
   - **P1**: a new L1/L2 directory was created without first proposing + confirming the type (or without the timeout fallback) → reject; run `naming.py upsert` only after confirmation
-  - **P2**: confirmation prompt omitted the "auto-creates directory + syncs workspace.md" notice → re-prompt with full notice
+  - **P2**: confirmation prompt omitted the "auto-creates directory + syncs config.local.json" notice → re-prompt with full notice
 
 ### 3. Filename Format
 
@@ -54,23 +54,24 @@ Run after filename generation and before archiving. P0 must pass before output.
 
 ### 5. Archive
 
-- [ ] Old version archived to `archive_dir_name` directory
+- [ ] Old version archived to the language-matched folder (a Chinese filename → the Chinese archive/refer folders; an English filename → `history/` / `refer/`)
   - **P0**: archive via move, not copy (data loss risk if copy+delete)
   - **P1**: archive directory doesn't exist → create it
+  - **P1**: folder language does not match the filename language (e.g. Chinese file archived to `history/`) → re-route to the correct language folder
   - **P2**: multiple old versions could be consolidated
 
 ### 6. Path & Cross-Reference
 
-- [ ] Config loaded from SKILL.md `## Configuration` (single source); tree loaded from `references/workspace.md`
-  - **P0**: SKILL.md Configuration table missing/unparseable → error with guidance
-  - **P1**: workspace.md `## Directory Tree` JSON block unparseable → fix or rebuild the block
-  - **P2**: directory created but not synced to workspace.md → run `naming.py upsert` to sync
+- [ ] Config loaded by merging `config.json` (baseline) + `config.local.json` (per-machine override); tree + workspace_root come from the same merge
+  - **P0**: both `config.json` and `config.local.json` missing/unparseable → error with guidance (soft-fail to `{}` per file is tolerated)
+  - **P1**: `directory_tree` value in the merged config unparseable → fix or rebuild it in `config.local.json`
+  - **P2**: directory created but not synced to `config.local.json` → run `naming.py upsert` to sync
 
 ### 7. Directory Numbering
 
 - [ ] Any L1/L2 directory the skill creates carries a zero-padded 2-digit numeric prefix from `01`, sequential by sibling
   - **P1**: a created directory lacks the `NN ` prefix (or reuses/skips a number) → run `naming.py upsert --l1 <type>` (and `--l2 <type>`) to normalise; `upsert` enforces the convention automatically
-  - **P2**: exempt dirs (`history`, `refer`, `99 Other`) appear numbered → these are intentionally exempt, no action
+  - **P2**: exempt dirs (`history`/`refer` in English, or their Chinese equivalents, and `99 Other`) appear numbered → these are intentionally exempt, no action
 
 ---
 

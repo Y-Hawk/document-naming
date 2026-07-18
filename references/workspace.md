@@ -1,212 +1,64 @@
 # Workspace Reference
 
-Shared by `document-naming`. Defines the **directory tree** (authoritative, auto-updated) and the directory numbering convention. The directory tree itself encodes the type mapping, so no separate mapping table is needed.
+Shared by `document-naming`. Documents the **directory-tree schema**, the
+**type-resolution rules**, and the **directory numbering convention**. The tree
+itself encodes the type mapping, so no separate mapping table is needed.
 
-> This file is the **single source of truth** for the workspace directory tree.
-> It is parsed and **auto-updated** by `scripts/naming.py` (`upsert` command) whenever a new L1/L2 directory is created. Do not hand-edit the JSON block unless you are fixing a parse error — prefer letting the skill manage it.
-
----
-
-## Workspace Root
-
-Absolute root directory under which all L1/L2 directories are created. This is the authoritative root location (see SKILL.md §Workspace Root Resolution): the path below is used directly; if empty, the skill falls back to system user root/DocumentSpace (created on the fly, never the bare Desktop / user root).
-
-The current context root:
-
-`C:/Users/admin.DESKTOP-FETRK5E/Desktop/内容创作专家`
+> The real on-disk folders are Chinese-named; the examples below use English
+> folder names for readability. The authoritative layout is defined in the
+> skill's JSON configuration.
 
 ---
 
-## Workspace Config
-
-Workspace-level runtime settings. These are the **authoritative** values —
-`naming.py` reads them from this section (the SKILL.md `### Configuration`
-table no longer carries them). The directory tree source is fixed at
-`references/workspace.md` itself (see `references/rules.md`).
-
-| Key                 | Value     | Description                                                  |
-| ------------------- | --------- | ------------------------------------------------------------ |
-| `archive_dir_name`  | `history` | Sub-directory for archived (non-final) old versions          |
-| `refer_dir_name`    | `refer`   | Sub-directory for `.refer` old versions                     |
-
-> Change a value here and `naming.py` picks it up on the next run — no script
-> edit needed.
-
----
-
-## Directory Tree
-
-The machine-readable, authoritative directory layout. `naming.py` reads and writes this block.
-
-> **This tree mirrors the real folders on disk** (Chinese names, numbers preserved). It is rebuilt by `naming.py scan [--apply]`, which applies the four sync rules: keep each directory's existing number; add/update/remove entries to match the disk; skip dot-prefixed and system/app-class dirs (`Excalidraw`, `.obsidian`); and include only L1/L2 — L3+ is reported but never added. Run `naming.py scan` (dry-run) then `naming.py scan --apply` (write) to re-sync.
-
-```json
-{
-  "01": {
-    "name": "01 方案",
-    "type": "方案",
-    "sub": {
-      "01": {
-        "name": "01 运营方案"
-      },
-      "02": {
-        "name": "02 专题方案"
-      },
-      "03": {
-        "name": "03 技能方案"
-      },
-      "99": {
-        "name": "99 参考文档"
-      }
-    }
-  },
-  "02": {
-    "name": "02 题库",
-    "type": "题库",
-    "sub": {}
-  },
-  "03": {
-    "name": "03 文章",
-    "type": "文章",
-    "sub": {
-      "01": {
-        "name": "01 WorkBuddy"
-      },
-      "02": {
-        "name": "02 AI的前世今生"
-      },
-      "03": {
-        "name": "03 AI求职专题"
-      },
-      "04": {
-        "name": "04 Axure教程"
-      },
-      "05": {
-        "name": "05 AI基础重构专题"
-      },
-      "06": {
-        "name": "06 提示词专题"
-      },
-      "99": {
-        "name": "99 其它"
-      }
-    }
-  },
-  "04": {
-    "name": "04 规范",
-    "type": "规范",
-    "sub": {
-      "01": {
-        "name": "01 OpenClaw配置"
-      },
-      "02": {
-        "name": "02 写作规范"
-      },
-      "03": {
-        "name": "03 视觉规范"
-      }
-    }
-  },
-  "05": {
-    "name": "05 素材",
-    "type": "素材",
-    "sub": {
-      "01": {
-        "name": "01 文章配图"
-      },
-      "02": {
-        "name": "02 参考清单"
-      },
-      "99": {
-        "name": "99 其它"
-      }
-    }
-  },
-  "98": {
-    "name": "98 意见",
-    "type": "意见",
-    "sub": {
-      "01": {
-        "name": "01 技能"
-      },
-      "02": {
-        "name": "02 文章"
-      },
-      "03": {
-        "name": "03 方案"
-      },
-      "04": {
-        "name": "04 脚本"
-      }
-    }
-  },
-  "99": {
-    "name": "99 其它",
-    "type": "其它",
-    "sub": {
-      "01": {
-        "name": "01 PMP"
-      },
-      "02": {
-        "name": "02 离职"
-      },
-      "03": {
-        "name": "03 简历"
-      },
-      "04": {
-        "name": "04 音乐"
-      }
-    }
-  }
-}
-```
-
-> **Depth cap: two levels only.** The tree is intentionally capped at L1 + L2. L2 entries carry **no `sub`** — the skill never creates a third level. (`upsert` only operates on L1/L2, so a third level cannot be produced.)
+## Directory Schema
 
 ### Schema
 
 | Field | Meaning |
 | ----- | ------- |
 | **L1 key** | The **zero-padded number only**, e.g. `03`, `98`, `99`. (Not the descriptive name — see §Directory Numbering Convention.) |
-| **L1 `name`** | Full L1 directory name `NN English name`, e.g. `03 Article`. |
+| **L1 `name`** | Full L1 directory name `NN name`, e.g. `03 Article`. |
 | **L1 `type`** | Filename type prefix — the descriptive name **with the numeric prefix stripped** (e.g. `03 Article` → `Article`). **This is the only field that defines a document's type.** |
 | **L1 `sub`** | Dict of L2 directories (the only nesting level permitted). `{}` = no L2. |
 | **L2 key** | The **zero-padded number only**, e.g. `01`, `02`, `99`. (Not the descriptive name — see §Directory Numbering Convention.) |
-| **L2 `name`** | Full L2 directory name `NN English name` for numbered dirs (e.g. `01 WorkBuddy`); the **original un-numbered name** for pre-existing legacy dirs (e.g. `Skill`, `PMP`). |
-| legacy L2 | Pre-existing, un-numbered L2 dirs are **not** renamed on disk; their `name` keeps the original (`Skill`, `PMP`), but they are assigned an auto-filled numeric **key** so the tree stays consistent. |
+| **L2 `name`** | Full L2 directory name `NN name` for numbered dirs (e.g. `01 WorkBuddy`); the **original un-numbered name** for pre-existing legacy dirs. |
+| legacy L2 | Pre-existing, un-numbered L2 dirs are **not** renamed on disk; their `name` keeps the original, but they are assigned an auto-filled numeric **key** so the tree stays consistent. |
 
 ### Type Resolution
 
-The directory tree **is** the type mapping — each L1 entry's `type` field already encodes the filename prefix, so no separate mapping table is needed. Rules when resolving a document's type:
+The directory tree **is** the type mapping — each L1 entry's `type` field already
+encodes the filename prefix, so no separate mapping table is needed. Rules when
+resolving a document's type:
 
 - **Type = first-level directory ONLY.** A document's type is determined **solely by its L1 directory** (the `type` field). The L2 directory is a **sub-category / save location**, **never** a document type and **never** part of the filename type prefix.
 - **Match on first-level directory only.** Look up the L1 directory's `type` field; do **not** descend into L2 for type matching, and do **not** treat an L2 name as a candidate type.
-- **Strip the numeric prefix for the filename.** The type prefix used in the generated filename is the L1 directory name **with its numeric prefix removed** — e.g. `03 Article/` → type `Article`; `01 Plan/` → type `Plan`.
+- **Strip the numeric prefix for the filename.** The type prefix used in the generated filename is the L1 directory name **with its numeric prefix removed** — e.g. `03 Article/` → type `Article`.
 - **Unmatched stays as-is.** Files outside all known directories keep their original prefix — never error.
 
-> **Language note**: the tree's `type` values (e.g. `Article`, `Plan`). Resolve the type against this tree for **every** document regardless of the document's language — the detected language governs the **title and content wording**, not the directory structure or the type prefix. Do not create parallel English-named L1 directories; reuse the existing L1 that matches the concept (e.g. an English article → `03 Article`, prefix `Article`).
+> **Language note**: resolve the type against this tree for **every** document regardless of the document's language — the detected language governs the **title and content wording**, not the directory structure or the type prefix. Do not create parallel English-named L1 directories; reuse the existing L1 that matches the concept.
 
 ---
 
 ## Directory Numbering Convention
 
-**MANDATORY** for any first-level (L1) or second-level (L2) directory the skill **creates by default** under the workspace.
+**MANDATORY** for any first-level (L1) or second-level (L2) directory the skill
+**creates by default** under the workspace.
 
 ### Rule
 
-1. Every L1 / L2 directory name MUST begin with a **zero-padded 2-digit number** (`01`, `02`, `03`, …), separated from the descriptive name by a single space: `06 Tool/`, `04 Case Library/`.
+1. Every L1 / L2 directory name MUST begin with a **zero-padded 2-digit number** (`01`, `02`, `03`, …), separated from the descriptive name by a single space: `06 Tools/`, `04 Case Library/`.
 2. **Numbering starts at `01`** and increments by 1 for each sibling, in creation / visual-sort order.
 3. To pick the next number, read the existing siblings in the same parent directory and take `max(existing numbers) + 1`. Do not reuse or skip numbers.
 4. The numeric prefix is **part of the directory name only** — it is stripped before becoming the filename type prefix (see §Type Resolution above).
 5. Sub-directories under a numbered parent inherit the same numbering scheme independently (their sequence is local to that parent).
+6. **Depth cap: two levels only.** The tree is intentionally capped at L1 + L2. L2 entries carry **no `sub`** — the skill never creates a third level. (`upsert` only operates on L1/L2, so a third level cannot be produced.)
 
 ### Exempt directories (no numeric prefix required)
 
 | Directory | Reason |
 | --------- | ------ |
-| `history/`   | Archive dir — name set in `## Workspace Config` (`archive_dir_name`) |
-| `refer/`     | Reference dir — name set in `## Workspace Config` (`refer_dir_name`) |
-| `99 Other/`   | Reserved fallback L1 — fixed `99_` prefix |
+| `history/` / `refer/` | Archive / reference dir — language-matched name, created at archive time (see `references/file-archive.md`) |
+| `99 Other/` | Reserved fallback L1 — fixed `99_` prefix |
 
 ### Reserved prefixes (never auto-assigned to a *new* directory)
 
@@ -215,12 +67,11 @@ The directory tree **is** the type mapping — each L1 entry's `type` field alre
 
 ### Examples
 
-| Parent            | New L2 needed        | Generated name     | Filename type |
-| ----------------- | -------------------- | ------------------ | ------------- |
-| `03 Article/` (subs end at `03 …`) | a new series `Overseas` | `04 Overseas/`    | `Overseas`        |
-| workspace root (L1 end at `05 Asset`) | a new category `Data` | `06 Data/` | `Data`  |
-| `05 Asset/` (subs `01…`,`02…`,`99…`) | a new asset group `Video` | `03 Video/` | `Video` |
+| Parent | New L2 needed | Generated name | Filename type |
+| ------ | ------------- | -------------- | ------------- |
+| `03 Article/` (subs end at `06 …`) | a new series `Overseas` | `07 Overseas/` | `Article` (L1 type — L2 never changes the prefix) |
+| workspace root (L1 end at `05 Assets`) | a new category `Data` | `06 Data/` | `Data` |
 
-> Existing directories that predate this convention (e.g. `98 Opinion/Skill`, `99 Other/PMP`) are **not** retroactively renumbered — the rule governs future default creation only.
+> Existing directories that predate this convention are **not** retroactively renumbered — the rule governs future default creation only.
 
-> The `upsert` command in `naming.py` enforces all of the above automatically: it computes the next number, creates the L1 key as the bare number (full `NN name` stored in its `name` field) and the L2 key as the bare number (full `NN name` stored in its `name` field — or the original un-numbered name for legacy dirs), then writes the tree back to this file.
+> The `upsert` command in `naming.py` enforces all of the above automatically: it computes the next number, creates the L1 key as the bare number (full `NN name` stored in its `name` field) and the L2 key as the bare number (full `NN name` in its `name`, or the original un-numbered name for legacy dirs), then writes the tree back to the local config.

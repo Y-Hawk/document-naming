@@ -2,7 +2,7 @@
 
 Canonical format specification for the document-naming skill.
 
-**Merged config** = values parsed by `naming.py` from the SKILL.md `## Configuration` table (the single source). The `directory_tree` is read separately from `references/workspace.md`.
+**Merged config** = values parsed by `naming.py` by merging `config.json` (baseline, may be remote-managed) with `config.local.json` (per-machine, git-ignored, key-level override). The `directory_tree` and `workspace_root` also live in these JSON files (`config.local.json` receives all runtime writes).
 
 ---
 
@@ -43,26 +43,31 @@ Example: `guide_claw-content-strategy_20260407_v1.0.0_Hawk.md`
 
 | Suffix | Meaning | Archive behaviour |
 |--------|---------|-------------------|
-| (none) | Work in progress | Move to `<archive_dir_name>/` |
+| (none) | Work in progress | Move to the language-matched archive folder — `history/` for an English filename, the Chinese folder for a Chinese filename |
 | `.final` | Approved / finalized | **Stay in place** |
-| `.refer` | Reference / backup | Move to `<refer_dir_name>/` |
+| `.refer` | Reference / backup | Move to the language-matched refer folder — `refer/` for an English filename, the Chinese folder for a Chinese filename |
+
+> Archive / refer folder names are **not configurable** — they are fixed rules matched to the document's language. A filename containing any CJK character (`[\u4e00-\u9fff]`) counts as Chinese; otherwise English.
 
 ---
 
 ## Workspace Settings
 
-The following are fixed conventions. They are **no longer** SKILL.md
-`### Configuration` keys — `naming.py` enforces them directly, and their
-authoritative values live in `references/workspace.md`:
+Workspace-related settings live in the JSON config files (`config.json` +
+`config.local.json`), not in SKILL.md and not in `references/workspace.md`:
 
-- **Directory tree source** — always `references/workspace.md`. `naming.py` reads
-  and writes that file (the `workspace_doc` config key was removed).
-- **Default workspace root** — when `references/workspace.md` `## Workspace Root`
-  is empty, `naming.py` creates and uses `<system user root>/DocumentSpace`
-  (`system user root` = `Path.home()`, per OS). Never the bare Desktop / user-root.
-  (The `default_workspace_root` config key was removed; this default is fixed.)
-- **Archive / refer directory names** — defined in `references/workspace.md`
-  `## Workspace Config` (`archive_dir_name` / `refer_dir_name`). Edit there to
-  change them; the SKILL.md `### Configuration` table no longer carries them.
-- **Explicit workspace root override** — there is no SKILL.md config key for the
-  root; set it in `references/workspace.md` `## Workspace Root` instead.
+- **Directory tree source** — the `directory_tree` key in the merged config.
+  `naming.py` reads it from the merge and writes updates only to
+  `config.local.json` (the per-machine, git-ignored file). `references/workspace.md`
+  is documentation only; it no longer stores the tree.
+- **Workspace root** — the `workspace_root` key in the merged config
+  (`config.local.json` overrides `config.json`). When it is empty, `naming.py`
+  creates and uses `<system user root>/DocumentSpace` (`system user root` =
+  `Path.home()`, per OS). Never the bare Desktop / user-root.
+- **Archive / refer directory names** — **not configurable**. They are fixed
+  language-matched rules (see Version Policy → Suffix): a Chinese filename →
+  the Chinese archive folder (none) / the Chinese refer folder (`.refer`); an
+  English filename → `history/` / `refer/`.
+- **Per-machine isolation** — all runtime writes (scan / upsert / root) land in
+  `config.local.json`, so remote-managed `config.json` never gets clobbered and
+  different machines keep their own root and tree.
