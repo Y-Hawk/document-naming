@@ -62,10 +62,19 @@ Run after filename generation and before archiving. P0 must pass before output.
 
 ### 6. Path & Cross-Reference
 
+- [ ] Workspace root resolved via the 4-tier chain (SKILL.md constraint #9): configured root > explicit `--root` (persisted when config empty) > `--context-root` (session-inferred, never persisted) > `DocumentSpace` fallback; a static config root always wins over explicit/context roots
+  - **P1**: an explicit/context root overrode a non-empty configured root → keep the configured root; explicit/context roots apply only when config is empty
+  - **P2**: `--context-root` got persisted into config.local.json → it must never be persisted (re-inferred each run); only `--root` persists
 - [ ] Config loaded by merging `config.json` (baseline) + `config.local.json` (per-machine override); tree + workspace_root come from the same merge
   - **P0**: both `config.json` and `config.local.json` missing/unparseable → error with guidance (soft-fail to `{}` per file is tolerated)
   - **P1**: `directory_tree` value in the merged config unparseable → fix or rebuild it in `config.local.json`
   - **P2**: directory created but not synced to `config.local.json` → run `naming.py upsert` to sync
+- [ ] User-specified save location takes highest priority (SKILL.md constraint #10): an explicit user L1/L2 (or full path) overrides config-tree matching, but does NOT override an already-configured root (root follows its own 4-tier chain)
+  - **P1**: user explicitly named an L1/L2/path but config-tree matching silently redirected the file elsewhere → honor the user location, then `upsert` it into the tree
+  - **P2**: user-specified location was treated as a new root instead of a save directory → keep the configured root; apply the user choice only to the save directory
+- [ ] Per-invocation sync is additive only (SKILL.md constraint #11): when a root is configured (`source ≠ default`), new on-disk L1/L2 dirs are added to the config tree; config entries missing on disk are NEVER auto-removed
+  - **P1**: a config-tree entry was pruned/deleted because it no longer exists on disk → restore it; deletions are never auto-pruned (only `scan --apply` performs an explicit full mirror)
+  - **P2**: additive sync skipped when a real root was configured → run the sync so newly-found disk dirs land in `directory_tree`
 
 ### 7. Directory Numbering
 

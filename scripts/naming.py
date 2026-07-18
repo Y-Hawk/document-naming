@@ -11,18 +11,33 @@ by the document's language (Chinese title → 历史版本/参考备份, else hi
 
 Format: see references/rules.md
 
+Global context flags (accepted by any command; passed by the calling AI):
+    --author <name>          the real author the AI identified
+    --root <path>            explicit workspace root; adopted AND persisted to
+                             config.local.json when config has no root
+    --context-root <path>    session-inferred root; used only when config is
+                             empty and no --root was given — NEVER persisted
+
 Commands:
-    generate  <title> <ext> --type <type> --author <author>
-              [--date YYYYMMDD] [--suffix final|refer]
+    generate  <title> <ext> [--type <type>] [--author <author>]
+              [--date YYYYMMDD] [--suffix final|refer] [--l2 <subtype>]
+                                           # resolve type (3-tier: config match
+                                           # > AI define > language default),
+                                           # auto-upsert the L1 (and optional
+                                           # L2) into config + disk, return
+                                           # save_path/l1/l2
     bump      <filename> <major|minor|patch>
     archive   <file_path>
-    tree                                   # print current directory_tree
-    root                                   # resolve workspace root
-                                           # (config.local/config.json → default)
+    tree                                   # print directory_tree (runs the
+                                           # per-invocation additive sync first)
+    root                                   # resolve workspace root (4-tier:
+                                           # config > --root > --context-root >
+                                           # default DocumentSpace)
     upsert    --l1 <type> [--l2 <type>]    # ensure L1/L2 exists (01-numbering),
                                            # write back to config.local.json
-    scan      [--apply]                    # sync L1/L2 dirs on disk into the
-                                           # tree (rules 1-4); --apply writes
+    scan      [--apply]                    # full mirror of L1/L2 dirs on disk
+                                           # into the tree (rules 1-4;
+                                           # add/update/remove); --apply writes
                                            # to config.local.json
 """
 
@@ -45,6 +60,7 @@ _SKILL_ROOT = _skill_root()
 _L1_RESERVED_MAX = 98   # 98 Opinion / 99 Other are reserved L1 buckets
 _L2_RESERVED_MAX = 99   # 99 … is the reserved "Other" catch-all at L2
 _FALLBACK_TYPE = "其它"  # fallback L1 bucket (99 其它) — used when no type can be resolved
+_OTHER_ALIASES = {"other", "others", "其它", "其它"}  # aliases that map to the 99 entry
 
 # System user root directory per platform — the base under
 # which the default `DocumentSpace` folder is created by the skill. `Path.home()`
@@ -127,6 +143,8 @@ def _write_workspace_tree(tree: dict) -> bool:
     Writes never touch config.json (the shared baseline), so remote management
     can overwrite that file safely. Returns True on success.
     """
+    global _tree_cache
+    _tree_cache = None
     local = _read_json(_config_local_path())
     local["directory_tree"] = tree
     try:
@@ -137,6 +155,75 @@ def _write_workspace_tree(tree: dict) -> bool:
         return True
     except OSError:
         return False
+
+
+def _ensure_dirs_on_disk(tree: dict) -> None:
+    """Create any L1/L2 directories declared in *tree* but missing on disk.
+
+    Used after bootstrapping an empty config tree from a baseline, so the
+    on-disk structure is materialized and subsequent runs read from config
+    (no re-creation needed). This only creates missing dirs; it never prunes.
+    """
+    root = Path(_resolve_workspace_root()["root"])
+    for l1k, l1v in tree.items():
+        l1p = root / str(l1v.get("name", l1k))
+        l1p.mkdir(parents=True, exist_ok=True)
+        for l2k, l2v in (l1v.get("sub") or {}).items():
+            (l1p / str(l2v.get("name", l2k))).mkdir(parents=True, exist_ok=True)
+
+
+def _sync_tree_additive() -> None:
+    """Additively sync the on-disk root into the config tree (add-only).
+
+    Runs on each skill invocation when the resolved root is "configured"
+    (source != "default"). For every numbered content L1/L2 directory present
+    on disk but missing from the config tree, add it (preserving its number).
+    Entries present in config but absent on disk are NEVER removed — config is
+    the category source of truth; deletions are not auto-pruned.
+
+    Realises requirement 4: keep config in sync with disk *additions* only.
+    """
+    info = _resolve_workspace_root()
+    if info["source"] == "default":
+        return  # no configured root -> do not check
+    root = Path(info["root"])
+    if not root.exists():
+        return
+    tree = _parse_workspace_tree()
+    changed = False
+    for d in sorted(root.iterdir()):
+        if not d.is_dir() or _classify_dir(d.name) != "content":
+            continue
+        l1_num = f"{_prefix_of(d.name):02d}"
+        if l1_num not in tree:
+            tree[l1_num] = {"name": d.name, "type": _core_name(d.name), "sub": {}}
+            changed = True
+        subs = tree[l1_num].setdefault("sub", {})
+        for s in sorted(d.iterdir()):
+            if not s.is_dir() or _classify_dir(s.name) != "content":
+                continue
+            s_num = f"{_prefix_of(s.name):02d}"
+            if s_num not in subs:
+                subs[s_num] = {"name": s.name}
+                changed = True
+    if changed:
+        _write_workspace_tree(tree)
+
+
+def _ensure_tree() -> dict:
+    """Return the merged directory tree (config.local.json over config.json).
+
+    On each call, an additive disk->config sync runs first (see
+    `_sync_tree_additive`) so the tree tracks new on-disk directories without
+    ever deleting config entries. Result is cached for the process lifetime and
+    invalidated by any tree write.
+    """
+    global _tree_cache
+    if _tree_cache is not None:
+        return _tree_cache
+    _sync_tree_additive()
+    _tree_cache = _parse_workspace_tree()
+    return _tree_cache
 
 
 def _load_config() -> dict:
@@ -158,7 +245,7 @@ def _load_config() -> dict:
     allowed = [str(e).lower().lstrip(".") for e in allowed if str(e).strip()]
 
     return {
-        "default_author": str(raw.get("default_author") or "Unknown").strip() or "Unknown",
+        "default_author": str(raw.get("default_author") or "").strip(),
         "default_extension": (str(raw.get("default_extension") or "md").strip().lstrip(".").lower() or "md"),
         "allowed_extensions": allowed or list(_DEFAULT_ALLOWED),
         "workspace_root": str(raw.get("workspace_root") or "").strip(),
@@ -167,6 +254,20 @@ def _load_config() -> dict:
 
 
 _config = _load_config()
+
+# AI-context layers (passed by the calling AI from its session):
+#   _CTX_AUTHOR        — the real author the AI identified (--author)
+#   _CTX_ROOT          — an explicitly provided root (--root / --workspace-root);
+#                         when config has no root, this is adopted AND persisted
+#                         into config.local.json (becomes the future config)
+#   _CTX_INFERRED_ROOT — a root the AI inferred from session context
+#                         (--context-root); used only when config has no root and
+#                         none was explicitly provided — NEVER persisted
+# Static config always wins over any of these (config > provided > context > default).
+_CTX_AUTHOR = ""
+_CTX_ROOT = ""
+_CTX_INFERRED_ROOT = ""
+_tree_cache = None  # lazy directory tree (additively synced from disk per call)
 
 
 def _cfg(key: str, default: str = "") -> str:
@@ -183,7 +284,8 @@ def _allowed_extensions() -> list[str]:
 
 
 # =============================================================================
-#  Workspace root resolution — 2-tier: config (config.json/.local) → default
+#  Workspace root resolution — 4-tier: config → explicit --root (persisted) →
+#  --context-root (session-inferred, not persisted) → default DocumentSpace
 # =============================================================================
 
 def _default_workspace_root() -> Path:
@@ -208,19 +310,63 @@ def _configured_workspace_root() -> str:
     return str(_merged_raw().get("workspace_root") or "").strip()
 
 
+def _persist_workspace_root(path: str) -> bool:
+    """Persist the workspace root into config.local.json (machine-local).
+
+    Used only when the config had no root and one was explicitly provided
+    (tier 2). Preserves every other local key (e.g. directory_tree). Writes
+    never touch config.json (the shared baseline). Returns True on success.
+    """
+    local = _read_json(_config_local_path())
+    local["workspace_root"] = path
+    try:
+        _config_local_path().write_text(
+            json.dumps(local, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        return True
+    except OSError:
+        return False
+
+
 def _resolve_workspace_root() -> dict:
-    """Resolve the absolute workspace root through the 2-tier chain:
+    """Resolve the absolute workspace root through the 4-tier chain:
 
       1. config — `workspace_root` from the merged config (config.local.json
                   overrides config.json) — authoritative when non-empty
-      2. default — `<system user root>/DocumentSpace` (created if missing)
+      2. explicit — `--root` / `--workspace-root` passed by the AI from an
+                  explicit user/AI instruction; when config has no root, this is
+                  adopted AND persisted into config.local.json (source="root")
+      3. context — `--context-root` the AI inferred from its session context
+                  (e.g. the project/session directory); used when config has no
+                  root and none was explicitly provided — NEVER persisted
+                  (source="context")
+      4. default — `<system user root>/DocumentSpace` (created if missing)
 
-    Returns {"root": <abs path>, "source": "config|default",
-             "created": bool}. Only the default tier ever creates a directory.
+    Returns {"root": <abs path>, "source": "config|root|context|default",
+             "created": bool}. Tiers 2-4 create the directory when missing.
+
+    NOTE: a user-specified root is LOWER priority than an existing config root —
+    it only takes effect (and persists) when the config root is empty. "User
+    highest priority" applies to the L1/L2 save-directory choice, not to
+    overriding an already-configured root.
     """
-    ctx = _configured_workspace_root()
-    if ctx:
-        return {"root": str(Path(ctx)), "source": "config", "created": False}
+    cfg = _configured_workspace_root()
+    if cfg:
+        return {"root": str(Path(cfg)), "source": "config", "created": False}
+
+    if _CTX_ROOT and _CTX_ROOT.strip():
+        p = Path(_CTX_ROOT.strip())
+        created = not p.exists()
+        p.mkdir(parents=True, exist_ok=True)
+        _persist_workspace_root(str(p))
+        return {"root": str(p), "source": "root", "created": created}
+
+    if _CTX_INFERRED_ROOT and _CTX_INFERRED_ROOT.strip():
+        p = Path(_CTX_INFERRED_ROOT.strip())
+        created = not p.exists()
+        p.mkdir(parents=True, exist_ok=True)
+        return {"root": str(p), "source": "context", "created": created}
 
     d = _default_workspace_root()
     created = not d.exists()
@@ -263,11 +409,20 @@ def _sanitize(title: str) -> str:
 
 
 def _resolve_author(context_author: str = "") -> str:
-    """Resolve author: caller context → config default_author → 'Unknown'."""
-    if context_author and context_author.strip():
-        return context_author.strip()
-    fb = _cfg("default_author", "Unknown")
-    return fb.strip() or "Unknown"
+    """Resolve author: config default_author → AI context → 'Unknown'.
+
+    Priority (config is authoritative; AI context only fills the gap):
+      1) config default_author
+      2) the author the AI identified from its session (--author / context_author)
+      3) hardcoded 'Unknown' fallback
+    """
+    cfg = _cfg("default_author", "").strip()
+    if cfg:
+        return cfg
+    ctx = (context_author or _CTX_AUTHOR or "").strip()
+    if ctx:
+        return ctx
+    return "Unknown"
 
 
 def _prefix_of(key: str) -> int | None:
@@ -500,8 +655,9 @@ def upsert_dir(l1_type: str, l2_type: str = "") -> dict:
 
     Returns: {"l1": "<key>", "l2": "<key>|null", "created": bool}
     """
-    tree = _parse_workspace_tree()
+    tree = _ensure_tree()
     created = False
+    root = Path(_resolve_workspace_root()["root"])
 
     # ---- L1 ----
     # L1 key is the bare number (e.g. "03"); the full "NN name" lives in `name`.
@@ -523,8 +679,15 @@ def upsert_dir(l1_type: str, l2_type: str = "") -> dict:
         l1_key = f"{n:02d}"
         tree[l1_key] = {"name": f"{n:02d} {l1_type}", "type": l1_type, "sub": {}}
         created = True
+        (root / tree[l1_key]["name"]).mkdir(parents=True, exist_ok=True)
 
-    result = {"l1": l1_key, "l2": None, "created": created}
+    result = {
+        "l1": l1_key,
+        "l1_name": tree[l1_key]["name"],
+        "l2": None,
+        "l2_name": None,
+        "created": created,
+    }
 
     # ---- L2 ----
     # L2 key is the zero-padded NUMBER only (e.g. "01"); the full directory
@@ -545,7 +708,11 @@ def upsert_dir(l1_type: str, l2_type: str = "") -> dict:
             l2_key = f"{n:02d}"
             subs[l2_key] = {"name": f"{n:02d} {l2_type}"}
             created = True
+            (root / tree[l1_key]["name"] / subs[l2_key]["name"]).mkdir(
+                parents=True, exist_ok=True
+            )
         result["l2"] = l2_key
+        result["l2_name"] = subs[l2_key]["name"]
 
     result["created"] = created
     if created:                       # persist only when a directory was added
@@ -676,19 +843,47 @@ def _parse_flags(args: list[str], mapping: dict[str, str]) -> dict[str, str]:
 def _cmd_generate() -> None:
     if len(sys.argv) < 4:
         _err("Usage: naming.py generate <title> <ext> "
-             "--type <type> --author <author> [--date YYYYMMDD] [--suffix final|refer]")
+             "--type <type> --author <author> [--date YYYYMMDD] "
+             "[--suffix final|refer] [--l2 <subtype>]")
 
+    _ensure_tree()  # additive disk->config sync (config -> disk additions)
     opts = _parse_flags(sys.argv[4:], {
         "--type":   "file_type",
         "--author": "author",
         "--date":   "date_str",
         "--suffix": "suffix",
+        "--l2":     "l2",
     })
+
+    title = sys.argv[2]
+    ext = sys.argv[3]
+    lang = _doc_lang(title)
+    raw_type = (opts.get("file_type") or "").strip()
+
+    # Type resolution (3-tier): AI passes the config-matched type; if empty or an
+    # explicit "other" alias, fall back to the language-adapted default
+    # ("其它" for Chinese, "Other" for English) which reuses the 99 entry.
+    if raw_type and raw_type.lower() in _OTHER_ALIASES:
+        directory_type = _FALLBACK_TYPE
+        prefix = "其它" if lang == "zh" else "Other"
+    elif raw_type:
+        directory_type = raw_type
+        prefix = raw_type
+    else:
+        directory_type = _FALLBACK_TYPE
+        prefix = "其它" if lang == "zh" else "Other"
+
+    # Auto-complete the directory tree: ensure the L1 (and optional L2) exists
+    # on disk and in config (persisted). New dirs are created here.
+    ups = upsert_dir(directory_type, opts.get("l2", ""))
+    root = Path(_resolve_workspace_root()["root"])
+    save_path = root / ups["l1_name"]
+    if ups["l2_name"]:
+        save_path = save_path / ups["l2_name"]
 
     try:
         result = generate_name(
-            sys.argv[2], sys.argv[3],
-            opts.get("file_type", ""),
+            title, ext, prefix,
             opts.get("author", ""),
             opts.get("date_str", ""),
             opts.get("suffix", ""),
@@ -696,6 +891,9 @@ def _cmd_generate() -> None:
     except ValueError as e:
         _err(str(e))
 
+    result["save_path"] = str(save_path)
+    result["l1"] = ups["l1"]
+    result["l2"] = ups["l2"]
     print(json.dumps(result, ensure_ascii=False))
 
 
@@ -732,7 +930,7 @@ def _cmd_archive() -> None:
 
 
 def _cmd_tree() -> None:
-    print(json.dumps(_parse_workspace_tree(), ensure_ascii=False, indent=2))
+    print(json.dumps(_ensure_tree(), ensure_ascii=False, indent=2))
 
 
 def _cmd_root() -> None:
@@ -755,6 +953,19 @@ def _cmd_scan() -> None:
 
 
 def main() -> None:
+    global _CTX_AUTHOR, _CTX_ROOT, _CTX_INFERRED_ROOT
+    # AI-context flags (config > explicit --root > inferred --context-root >
+    # fallback). Parsed globally so any command can carry the caller's context.
+    # A user/AI-explicit --root persists into config when config has no root;
+    # --context-root is session-inferred and never persisted.
+    for i, a in enumerate(sys.argv):
+        if a == "--author" and i + 1 < len(sys.argv):
+            _CTX_AUTHOR = sys.argv[i + 1]
+        elif a in ("--root", "--workspace-root") and i + 1 < len(sys.argv):
+            _CTX_ROOT = sys.argv[i + 1]
+        elif a in ("--context-root", "--context-workspace-root") and i + 1 < len(sys.argv):
+            _CTX_INFERRED_ROOT = sys.argv[i + 1]
+
     cmds = {
         "generate": _cmd_generate,
         "bump":     _cmd_bump,

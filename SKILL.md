@@ -27,6 +27,19 @@ Extension validation is a **hard gate** enforced by `naming.py` before any step:
 
 ---
 
+## Workspace Root Resolution (prerequisite)
+
+The root directory MUST be determined before any save-path decision. Resolution is **4-step, config-first**:
+
+1. **Configured root** — `workspace_root` in the merged config (config.local.json overrides config.json) is non-empty → use it (authoritative, highest). `source=config`.
+2. **Explicit root provided** — config empty + `--root` / `--workspace-root` passed (user/AI explicit) → adopt it **and persist** into config.local.json (becomes the future config). `source=root`.
+3. **Context-inferred root** — config empty + no explicit root + `--context-root` passed (AI inferred from session) → use it, **never persisted** (re-inferred each run). `source=context`.
+4. **Fallback** — config empty + nothing provided → `<system user root>/DocumentSpace` (auto-created). `source=default`.
+
+> A user-specified root is **lower priority than an existing config root** — it only takes effect (and persists) when the config root is empty. "User highest priority" applies to the **L1/L2 save-directory** choice (below), not to overriding an already-configured root.
+
+---
+
 ## Core Workflow
 
 ```
@@ -35,14 +48,29 @@ Type Matching → File Generation → File Archive
                             (modify only)
 ```
 
-### Phase 1. Type Matching —— Resolve type prefix and language
+### Phase 1. Type Matching —— Resolve type prefix and language (3-tier)
 
-Detect the document language from title/content. Resolve the type prefix:
+Detect the document language from title/content. Resolve the type **prefix** through three tiers, in order:
 
-- **Caller provides a type** → normalize against `directory_tree` type entries (match → mapped prefix; no match → keep caller type).
-- **No type provided** → **auto-detect from content** (see §Auto-Detect Flow below). Do NOT silently fall back to a fixed bucket.
+1. **Config match (highest for type)** — read the `directory_tree` and match the document's title/content against the existing L1 `type` values. If a config type matches → use it.
+2. **AI defines a new type** — if no config type matches (or the config tree is unreadable) → the AI autonomously defines a new type from the content, then creates it via `upsert` (persisted to config).
+3. **Default type (fallback)** — if the AI also cannot define a type → use the skill's default type, **adapted to the document language**: Chinese → `其它`, English → `Other`. The default category is the `99 其它` entry in config (the filename prefix adapts; the directory stays `99 其它`).
 
 Resolve the type against the `directory_tree` (its `type` values) for **every** document. The detected language governs the **title and content wording**, not the directory structure or the type prefix. Do not create parallel English-named L1 directories — reuse the existing L1 that matches the concept (e.g. an English article → `03 Article`, prefix `Article`). If a genuinely new concept appears, create it under the tree via `upsert`.
+
+## Save Directory Resolution (premised on a determined root)
+
+Once the root is determined (above), resolve the **save directory** through four steps:
+
+1. **User explicitly specifies L1/L2** → highest priority; save there.
+2. **User unspecified** → read the `directory_tree` and match by type:
+   - L1 hit + L2 hit → save under that L2.
+   - L1 hit + no suitable L2 → create the L2 from AI context under that L1, save there.
+   - No L1 hit → create the L1 for the type, and create the L2 from AI context under it, save there.
+3. Any newly created L1/L2 is **upserted into the config tree** (persisted) — see `naming.py upsert`.
+4. The resolved `save_path` is returned by `naming.py generate` (it auto-upserts and reports `save_path`).
+
+> "User highest priority" lives here: an explicit user save location overrides config matching. It does NOT override an already-configured **root** (see Root Resolution step 1).
 
 ### Phase 2. File Generation —— Build compliant filename
 
@@ -69,7 +97,7 @@ When the caller does **not** provide a type, the skill infers it from the docume
 
 ### L1 (first-level directory)
 
-1. **Read the document content** (title + body). Infer the most appropriate L1 category (e.g. `Plan` / `Article` / `Question Bank` / `Asset` / `Standard` / `Opinion`). If genuinely unclassifiable, propose `Other`.
+1. **Read the document content** (title + body). Infer the most appropriate L1 category (e.g. `Plan` / `Article` / `Question Bank` / `Asset` / `Standard` / `Opinion`). If genuinely unclassifiable, fall back to the default type (`其它` for Chinese, `Other` for English).
 2. **Prompt the user to confirm** the inferred type, or let them supply a different one:
    > "Based on the content, this document appears to belong to the 【Plan】 category. Once confirmed I will auto-create the L1 directory `NN Plan` and keep the tree in sync; if the type is wrong, tell me the correct one. (No confirmation within the timeout → auto-execute)"
 3. **On confirmation** (or **timeout** with no response → auto-execute):
@@ -102,6 +130,9 @@ Same logic, one level deeper:
 | 6 | Type is resolved against the `directory_tree` for every document; the detected language governs title/content, **not** the directory structure or type prefix. Do not create parallel English-named L1 directories. |
 | 7 | **Directory numbering (MANDATORY)**: any first-level or second-level directory the skill creates by default under the workspace MUST carry a zero-padded 2-digit numeric prefix starting from `01`, sequential by sibling. Reserved/auto dirs (the archive/refer folders — `history`/`refer` in English, or their Chinese equivalents — and the `99_` fallback) are exempt. `naming.py upsert` enforces this automatically. |
 | 8 | **Auto-detect requires confirmation**: when no type is supplied, the skill must propose a type and let the user confirm/correct before creating a *new* directory. Timeout (no response) → auto-execute with the proposed type. |
+| 9 | **Pass AI context as flags**: when invoking `naming.py`, supply the context the AI identified from its session — `--author <real author>`, `--root <explicit root>` (persisted when config empty), and `--context-root <inferred root>` (session-inferred, never persisted). Root resolution is 4-tier: config > explicit root > context root > fallback. The static config always wins over an explicit/context root for the **root** itself; user highest priority applies to the **L1/L2 save directory**. Never use these flags to override an explicit config value. |
+| 10 | **User save location is highest priority**: if the user explicitly names an L1/L2 (or a specific path), it overrides config-tree matching. This does NOT override an already-configured root (root follows its own 4-tier chain). |
+| 11 | **Per-invocation additive sync (no delete)**: on every call, if a root is configured (source ≠ `default`), the config tree is additively synced from disk — new on-disk L1/L2 dirs are added to config; config entries missing on disk are NEVER removed. Deletions are not auto-pruned. |
 
 ---
 
@@ -135,6 +166,31 @@ User: "Update the naming spec doc"
 → Phase 2: bump version → v1.0.0 → v1.1.0
 → Phase 3: archive old version to the language-matched folder (the Chinese archive folder or `history/`)
 → Deliver: new filename + archive path
+```
+
+### User specifies the storage directory (highest priority)
+
+```
+User: "Save this plan under 06 Plan / WorkBuddy"
+→ Save Directory Resolution: user explicit L1/L2 → highest → save there
+→ Phase 1: type=Plan (matched to "06 Plan")
+→ Phase 2: generate "Plan_…_20260718_v1.0.0_Hawk.md" into 06 Plan/WorkBuddy/
+```
+
+### No type, unclassifiable content → language-adapted default
+
+```
+User: "Name this random note" (no type, AI cannot classify)
+→ Phase 1 tier 3: default type → Chinese "其它" / English "Other" (reuses 99 其它)
+→ Phase 2: generate "其它_…_v1.0.0_Hawk.md" into 99 其它/
+```
+
+### Root not configured, user provides it → persisted
+
+```
+User: "Put everything in D:/MyDocs" (config has no workspace_root)
+→ Root Resolution tier 2: --root D:/MyDocs → adopted AND written to config.local.json
+→ subsequent calls use it as source=config
 ```
 
 ---
@@ -174,6 +230,6 @@ Execution is refused immediately. The skill returns an error listing the allowed
 Just create a document and let the skill auto-detect the type, or tell it the type explicitly. On confirmation (or timeout) the skill creates the numbered L1/L2 directory and updates the tree automatically via `naming.py upsert`. You normally never edit the tree by hand.
 
 **Q: The directory tree looks out of sync — what do I do?**
-Run `naming.py scan` to preview a sync (dry-run, no writes). It mirrors the real root folders into the tree, applying the four sync rules: (1) preserve each directory's existing number; (2) add/update/remove tree entries to match the disk; (3) skip dot-prefixed dirs (`.obsidian`) and system/app-class dirs (`Excalidraw`); (4) only L1/L2 — L3+ is reported but never added. Run `naming.py scan --apply` to write the sync. For a single new category you can also use `naming.py upsert --l1 <type> [--l2 <type>]`. Hand-editing the config JSON is only for fixing parse errors.
+The skill keeps the tree in sync **automatically and additively** on every call: when a root is configured, any new L1/L2 folder on disk is added to the config tree (preserving its number); config entries that no longer exist on disk are never removed. You normally need no manual action. For an explicit one-off reconciliation, run `naming.py scan` (dry-run) / `naming.py scan --apply`; for a single new category use `naming.py upsert --l1 <type> [--l2 <type>]`. Hand-editing the config JSON is only for fixing parse errors.
 
-> **The tree mirrors the real folders.** The `directory_tree` in the local config is rebuilt to match the actual folders on disk — the `type` field of each L1 equals that folder's name with the numeric prefix stripped. `naming.py scan` is the single way to keep the two in lock-step.
+> **The tree tracks the real folders additively.** Each call adds newly-found disk directories into `directory_tree`; it never prunes config entries. `naming.py scan --apply` is the explicit full mirror when you want to force it.

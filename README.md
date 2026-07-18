@@ -43,7 +43,7 @@ User expresses intent only; AI infers type and bump level automatically:
 | Create document | `Create a document about {title}` | `Create a document about content strategy` |
 | Modify document | `Modify {filename}` | `Modify content strategy document, rewrote half of it` |
 
-**Type inference**: When no type is given, the skill auto-detects it from the document content and asks the user to confirm (timeout → auto-execute); if unclassifiable, falls back to `Other`.
+**Type inference**: When no type is given, the skill auto-detects it from the document content (title, then first ~200 chars of body) and asks the user to confirm (timeout → auto-execute); if unclassifiable, falls back to the language-adapted default type (`其它` for Chinese, `Other` for English).
 
 **Bump inference**: Rewrite/restructure → `major` · Add/remove sections → `minor` · Fix typos/format → `patch`
 
@@ -84,7 +84,11 @@ Runtime configuration lives in **two root-level JSON files**, merged at startup 
 
 Merge rule: `config.local.json` overrides `config.json` key-by-key. This keeps machine-specific settings (root, tree) local so a remote-managed `config.json` never clobbers them. Archive / refer folder names are **not** config keys — they are fixed language-matched rules.
 
-**Workspace root — resolution**: `workspace_root` (merged config, `config.local.json` wins) → `<system user root>/DocumentSpace` (default; a `DocumentSpace` folder is created under the OS user home first, never the bare Desktop/user-root). Inspect the resolved root with `naming.py root`.
+**Workspace root — resolution (4-tier, config-first)**: merged `workspace_root` (config.local.json wins) → explicit `--root` / `--workspace-root` flag (adopted **and persisted** to config.local.json when config empty) → `--context-root` / `--context-workspace-root` (session-inferred, **never persisted**) → `<system user root>/DocumentSpace` (default, auto-created). The static config is always authoritative for the **root itself**; "user highest priority" applies only to the L1/L2 save-directory choice. Inspect with `naming.py root`.
+
+**Author — resolution (3-tier)**: merged `default_author` → AI-provided `--author` flag → `"Unknown"`. Config wins over the flag.
+
+**Directory tree — per-invocation additive sync (no delete)**: the merged `directory_tree` (config.local.json wins) is authoritative. On every call, when a root is **configured** (source ≠ default), new numbered L1/L2 dirs found on disk are added to the tree (numbers preserved); config entries missing on disk are **never** removed. When the root is the fallback, no sync runs. Forced full mirror (add/update/remove) with `naming.py scan --apply`.
 
 ## CLI Command Reference
 
@@ -92,24 +96,24 @@ Every command wraps `scripts/naming.py` and prints JSON (`{"error": "..."}` on f
 
 | Command | Purpose | Example |
 |---------|---------|---------|
-| `generate <title> <ext> --type <t> [--author <a>] [--date YYYYMMDD] [--suffix final\|refer]` | Build a new compliant filename (no disk I/O) | `naming.py generate "Content Strategy" md --type Plan --author Hawk` |
+| `generate <title> <ext> --type <t> [--author <a>] [--date YYYYMMDD] [--suffix final\|refer] [--l2 <subtype>] [--root <path>] [--context-root <path>]` | Resolve type (3-tier) + auto-upsert the L1 (and optional L2) into config, create the dirs on disk if missing, and return `save_path`. `--root` persists when config empty; `--context-root` is session-inferred (never persisted); both are the AI context tier (config wins) | `naming.py generate "Content Strategy" md --type Plan --author Hawk --l2 WorkBuddy` |
 | `bump <filename> <major\|minor\|patch>` | Bump version and refresh the date | `naming.py bump "Plan_ContentStrategy_20260718_v1.0.0_Hawk.md" minor` |
 | `archive <file_path>` | Move the old version to the language-matched folder (move, never copy) | `naming.py archive "Plan_ContentStrategy_20260718_v1.0.0_Hawk.md"` |
-| `tree` | Print the parsed directory tree (JSON) | `naming.py tree` |
-| `root` | Resolve the workspace root (config → default) | `naming.py root` |
-| `upsert --l1 <t> [--l2 <t>]` | Ensure an L1/L2 directory exists (01-numbering) and write it back to `config.local.json` | `naming.py upsert --l1 Article --l2 WorkBuddy` |
-| `scan [--apply]` | Sync L1/L2 dirs on disk into the tree (rules 1–4); dry-run by default, `--apply` writes | `naming.py scan` / `naming.py scan --apply` |
+| `tree [--root <path>] [--context-root <path>]` | Print the parsed directory tree (JSON); runs the per-invocation additive sync first | `naming.py tree` |
+| `root [--root <path>] [--context-root <path>]` | Resolve the workspace root (4-tier: config → explicit `--root` (persisted) → `--context-root` (not persisted) → default) | `naming.py root` / `naming.py root --root /path/to/ws` / `naming.py root --context-root /path/to/session` |
+| `upsert --l1 <t> [--l2 <t>] [--root <path>]` | Ensure an L1/L2 directory exists (01-numbering), write it back to `config.local.json`. Runs the per-invocation additive sync first | `naming.py upsert --l1 Article --l2 WorkBuddy` |
+| `scan [--apply] [--root <path>]` | Full mirror of L1/L2 dirs on disk into the tree (add/update/remove); dry-run by default, `--apply` writes. Distinct from the per-invocation **add-only** sync | `naming.py scan` / `naming.py scan --apply` |
 
-> The `directory_tree` in the merged config mirrors the real (Chinese-named) folders on disk — keep the two in lock-step with `naming.py scan` (dry-run first, then `--apply`). Writes land in `config.local.json`.
+> The `directory_tree` in the merged config is the category source of truth and is **additively** synced from disk on every call (new dirs added, never pruned). For a forced full reconciliation, run `naming.py scan` (dry-run) then `naming.py scan --apply`. All writes land in `config.local.json`.
 
 ## Caveats
 
 - Config lives in `config.json` (baseline) + `config.local.json` (per-machine override, git-ignored); edit these to change settings. Runtime writes go only to `config.local.json`.
-- Root resolves config → default `<user-home>/DocumentSpace`; inspect with `naming.py root`.
-- Directory tree lives in the merged config (`config.local.json` wins); inspect with `naming.py tree`, sync with `naming.py scan --apply`.
+- Root resolves 4-tier: config → explicit `--root` (persisted to config.local.json) → `--context-root` (session-inferred, never persisted) → default `<user-home>/DocumentSpace`. Inspect with `naming.py root`.
+- Directory tree lives in the merged config (`config.local.json` wins); on every call (when a root is configured) it is **additively** synced from disk — new dirs added, never pruned. Inspect with `naming.py tree`; forced full mirror with `naming.py scan --apply`.
 - Archive / refer folder names are not configurable — an English filename uses `history/` / `refer/`; a Chinese filename uses the equivalent Chinese folders.
 - Title empty / all special chars → falls back to `"untitled"`.
-- No type given → auto-detect from content + confirm (timeout → auto-execute); unclassifiable → `Other`.
+- No type given → auto-detect from content + confirm (timeout → auto-execute); unclassifiable → language-adapted default (`其它` for Chinese, `Other` for English), reusing the `99 其它` entry.
 - `.final` suffix → archiving not triggered on modify; old version stays.
 - Extension not in whitelist → execution refused (hard gate).
 
