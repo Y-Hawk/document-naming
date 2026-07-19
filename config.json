@@ -2,72 +2,19 @@
   "default_author": "Hawk",
   "default_extension": "md",
   "allowed_extensions": ["md", "pptx", "xlsx", "docx", "pdf", "png", "mp4", "mp3"],
-  "workspace_root": "C:/Users/admin.DESKTOP-FETRK5E/Desktop/内容创作专家",
+  "workspace_root": "",
   "directory_tree": {
     "01": {
-      "name": "01 方案",
-      "type": "方案",
+      "name": "01 project",
+      "type": "project",
       "sub": {
-        "01": { "name": "01 运营方案" },
-        "02": { "name": "02 专题方案" },
-        "03": { "name": "03 技能方案" },
-        "99": { "name": "99 参考文档" }
-      }
-    },
-    "02": {
-      "name": "02 题库",
-      "type": "题库",
-      "sub": {}
-    },
-    "03": {
-      "name": "03 文章",
-      "type": "文章",
-      "sub": {
-        "01": { "name": "01 WorkBuddy" },
-        "02": { "name": "02 AI的前世今生" },
-        "03": { "name": "03 AI求职专题" },
-        "04": { "name": "04 Axure教程" },
-        "05": { "name": "05 AI基础重构专题" },
-        "06": { "name": "06 提示词专题" },
-        "99": { "name": "99 其它" }
-      }
-    },
-    "04": {
-      "name": "04 规范",
-      "type": "规范",
-      "sub": {
-        "01": { "name": "01 OpenClaw配置" },
-        "02": { "name": "02 写作规范" },
-        "03": { "name": "03 视觉规范" }
-      }
-    },
-    "05": {
-      "name": "05 素材",
-      "type": "素材",
-      "sub": {
-        "01": { "name": "01 文章配图" },
-        "02": { "name": "02 参考清单" },
-        "99": { "name": "99 其它" }
-      }
-    },
-    "98": {
-      "name": "98 意见",
-      "type": "意见",
-      "sub": {
-        "01": { "name": "01 技能" },
-        "02": { "name": "02 文章" },
-        "03": { "name": "03 方案" },
-        "04": { "name": "04 脚本" }
-      }
+        "01": { "name": "01 context-project" }
     },
     "99": {
-      "name": "99 其它",
-      "type": "其它",
+      "name": "99 other",
+      "type": "other",
       "sub": {
-        "01": { "name": "01 PMP" },
-        "02": { "name": "02 离职" },
-        "03": { "name": "03 简历" },
-        "04": { "name": "04 音乐" }
+        "01": { "name": "01 refer" }
       }
     }
   }
