@@ -51,13 +51,19 @@ Run after filename generation and before archiving. P0 must pass before output.
 - [ ] Version bump (major/minor/patch) correctly applied
   - **P1**: bump type doesn't match change → suggest correct level
   - **P2**: version string format edge case → normalize
+- [ ] **Deterministic bump chain (constraint #12 gate)**: on `modify`, the AI MUST compute the next version by calling `naming.py bump <existing_full_filename> <major|minor|patch>`, then pass that exact version to `naming.py generate --version <x.y.z>`. Never hand-edit or guess the version.
+  - **P0**: a `modify` whose new version was hand-written / guessed (not derived from `bump`) → reject; recompute via `bump` then chain `generate --version`
+  - **P0**: `generate` returned no `archive_path` on a `modify` (old same-doc file still in the original directory) → this is an in-place overwrite; refuse delivery, run archive first
+  - **P1**: `generate` was called without `--version` on a `modify` → the version is unchained from `bump`; re-run the `bump → generate --version` chain
+  - **P2**: `bump` scope (major/minor/patch) mismatched the actual change → suggest the correct scope
 
 ### 5. Archive
 
-- [ ] Old version archived to the language-matched folder (a Chinese filename → the Chinese archive/refer folders; an English filename → `history/` / `refer/`)
+- [ ] **Modify detection + mandatory archive (P0 gate)**: if the target `save_path` already contains a file of the same document (same type/title/author/ext, a *different* version), this is a modify and the old version MUST be archived (moved) **before** the new file is written. `generate` returns `archive_path` on modify — verify it is present and the old file is no longer at its original path.
+  - **P0**: a modify where the old file was NOT moved and `archive_path` is absent (or the old file still sits in the original directory alongside the new one) → this is an **in-place overwrite**; refuse delivery, run archive first
   - **P0**: archive via move, not copy (data loss risk if copy+delete)
   - **P1**: archive directory doesn't exist → create it
-  - **P1**: folder language does not match the filename language (e.g. Chinese file archived to `history/`) → re-route to the correct language folder
+  - **P1**: folder language does not match the **old** file's language (e.g. Chinese old file archived to `history/`) → re-route to the correct language folder
   - **P2**: multiple old versions could be consolidated
 
 ### 6. Path & Cross-Reference

@@ -84,7 +84,7 @@ Runtime configuration lives in **two root-level JSON files**, merged at startup 
 
 Merge rule: `config.local.json` overrides `config.json` key-by-key. This keeps machine-specific settings (root, tree) local so a remote-managed `config.json` never clobbers them. Archive / refer folder names are **not** config keys — they are fixed language-matched rules.
 
-**Workspace root — resolution (4-tier, config-first)**: merged `workspace_root` (config.local.json wins) → explicit `--root` / `--workspace-root` flag (adopted **and persisted** to config.local.json when config empty) → `--context-root` / `--context-workspace-root` (session-inferred, **never persisted**) → `<system user root>/DocumentSpace` (default, auto-created). The static config is always authoritative for the **root itself**; "user highest priority" applies only to the L1/L2 save-directory choice. Inspect with `naming.py root`.
+**Workspace root — resolution (4-tier, config-first)**: merged `workspace_root` (config.local.json wins) → explicit `--root` / `--workspace-root` flag (adopted **and persisted** to config.local.json when config empty) → `--context-root` / `--context-workspace-root` (session-inferred, **never persisted**) → `<system user root>/DocumentSpace` (default, auto-created). The static config is always authoritative for the **root itself**; "user highest priority" applies only to the L1/L2 save-directory choice. Inspect with `naming.py root`. (Full rule + priority table → `references/rules.md` §Workspace Root Resolution — single source of truth.)
 
 **Author — resolution (3-tier)**: merged `default_author` → AI-provided `--author` flag → `"Unknown"`. Config wins over the flag.
 
@@ -96,7 +96,7 @@ Every command wraps `scripts/naming.py` and prints JSON (`{"error": "..."}` on f
 
 | Command | Purpose | Example |
 |---------|---------|---------|
-| `generate <title> <ext> --type <t> [--author <a>] [--date YYYYMMDD] [--suffix final\|refer] [--l2 <subtype>] [--root <path>] [--context-root <path>]` | Resolve type (3-tier) + auto-upsert the L1 (and optional L2) into config, create the dirs on disk if missing, and return `save_path`. `--root` persists when config empty; `--context-root` is session-inferred (never persisted); both are the AI context tier (config wins) | `naming.py generate "Content Strategy" md --type Plan --author Hawk --l2 WorkBuddy` |
+| `generate <title> <ext> --type <t> [--author <a>] [--date YYYYMMDD] [--suffix final\|refer] [--version X.Y.Z] [--l2 <subtype>] [--root <path>] [--context-root <path>]` | Resolve type (3-tier) + auto-upsert the L1 (and optional L2) into config, create the dirs on disk if missing, return `save_path`, and **auto-archive any existing old version** (moved to the language-matched folder, `archive_path` returned) when a same-document different-version file is present. On `modify`, chain `bump` → `generate --version` (constraint #12). `--root` persists when config empty; `--context-root` is session-inferred (never persisted); both are the AI context tier (config wins) | `naming.py generate "Content Strategy" md --type Plan --author Hawk --l2 WorkBuddy` / `naming.py generate "Content Strategy" md --type Plan --author Hawk --version 1.1.0 --l2 WorkBuddy` |
 | `bump <filename> <major\|minor\|patch>` | Bump version and refresh the date | `naming.py bump "Plan_ContentStrategy_20260718_v1.0.0_Hawk.md" minor` |
 | `archive <file_path>` | Move the old version to the language-matched folder (move, never copy) | `naming.py archive "Plan_ContentStrategy_20260718_v1.0.0_Hawk.md"` |
 | `tree [--root <path>] [--context-root <path>]` | Print the parsed directory tree (JSON); runs the per-invocation additive sync first | `naming.py tree` |
@@ -138,6 +138,10 @@ document-naming/
 ```
 
 > `config.local.json` and `scripts/__pycache__/` are excluded by `.gitignore`.
+
+## Version History
+
+- **v1.0.0** (2026-07-20) — Skill consolidated: 4-tier workspace-root resolution (config → explicit `--root` persisted → `--context-root` session-inferred → `DocumentSpace` fallback), 3-tier type resolution (config match → AI define → language-adapted default `其它`/`Other`), per-invocation additive tree sync (no delete), dual JSON config (`config.json` baseline + `config.local.json` machine-local), and deterministic `bump → generate --version` modify chain with automatic old-version archiving (`generate` moves the prior same-document version before writing the new one, returning `archive_path`).
 
 ## License
 

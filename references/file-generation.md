@@ -38,6 +38,22 @@
 
 ## Modify
 
+> **MANDATORY ORDER — archive the old version BEFORE writing the new one.**
+> Never overwrite the original file in place. The existing old version MUST be
+> moved (MOVED, not copied) into the language-matched archive folder **before**
+> the new version is written. `naming.py generate` does this automatically: when
+> it detects an existing file of the same document (same type/title/author/
+> extension, a *different* version) in the target directory, it moves that old
+> file to the archive folder and returns `archive_path`. If you are not using
+> `generate`'s auto-archive, you MUST run the File Archive step (Phase 3) first,
+> then write the new file.
+
+### Step 0 — Detect existing old version
+Check the resolved `save_path` (the directory the original lives in) for any
+file matching the same document with a **different version**. If one is found,
+this is a `modify` and the archive step is **mandatory** — do not fall through
+to a plain create.
+
 ### Version Bump
 
 | Step | Action |
@@ -48,4 +64,13 @@
 | **Date** | Refresh to today |
 | **Reconstruct** | Only version, date, suffix change; title, type, author, extension stay |
 
-New file written to the **same directory** as the original. Old file archived by File Archive.
+### Step 1 — Archive old version (BEFORE write)
+Move the existing old-version file to the language-matched archive folder
+(`历史版本`/`history`, or `参考备份`/`refer` for `.refer`; `.final` stays in
+place). This is done for you by `naming.py generate` (it returns
+`archive_path`), or manually via `naming.py archive <old_file>` / Phase 3. The
+new file must be written **only after** the old one has been moved.
+
+### Step 2 — Write new version
+Write the newly generated file to the **same directory** as the original (now
+vacated by the moved old version).

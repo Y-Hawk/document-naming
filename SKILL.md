@@ -38,15 +38,18 @@ The root directory MUST be determined before any save-path decision. Resolution 
 
 > A user-specified root is **lower priority than an existing config root** — it only takes effect (and persists) when the config root is empty. "User highest priority" applies to the **L1/L2 save-directory** choice (below), not to overriding an already-configured root.
 
+> 完整规则、边界与优先链表见 `references/rules.md` §Workspace Root Resolution（单一权威源；此处为执行摘要）。
+
 ---
 
 ## Core Workflow
 
 ```
-Type Matching → File Generation → File Archive
-                                    ↑
-                            (modify only)
+Type Matching → [Detect existing old version at save_path?]
+                    ├── no  → File Generation (create)        → deliver
+                    └── yes → File Archive (move old FIRST)   → File Generation (new) → deliver
 ```
+> A `modify` is detected whenever the resolved `save_path` already holds a file of the same document with a different version. The old version is archived (moved) **before** the new file is generated/written — never overwritten in place. `naming.py generate` performs the archive automatically and returns `archive_path`.
 
 ### Phase 1. Type Matching —— Resolve type prefix and language (3-tier)
 
@@ -74,11 +77,11 @@ Once the root is determined (above), resolve the **save directory** through four
 
 ### Phase 2. File Generation —— Build compliant filename
 
-Load `references/file-generation.md`. Generate filename in format `{type}_{title}_{date}_v{x.y.z}_{author}.{ext}`. For create: generate new. For modify: bump version (major/minor/patch) on existing.
+Load `references/file-generation.md`. Generate filename in format `{type}_{title}_{date}_v{x.y.z}_{author}.{ext}`. For create: generate new. For modify: follow the deterministic chain in **Constraint #12** — `naming.py bump <existing_file> <scope>` then `naming.py generate --version <x.y.z>` — so the old version is auto-archived before the new one is written.
 
 ### Phase 3. File Archive —— Archive old version
 
-Load `references/file-archive.md`. Applies to `modify` only. Move old version to the archive sub-directory whose **name matches the document's language** (a Chinese-named file → the Chinese archive folder; an English-named file → `history/`; `.refer` → the Chinese refer folder or `refer/`). **MUST use move (mv/Move-Item/shutil.move), NEVER copy.**
+Load `references/file-archive.md`. **Trigger**: whenever the target `save_path` already contains a file of the **same document** (same type/title/author/extension, a *different* version) — this is the `modify` case, and the archive is **mandatory** (do not fall through to a plain create). The archive MUST run **before** the new version is written, so the original is never overwritten in place. `naming.py generate` performs this automatically and returns `archive_path`. **MUST use move (mv/Move-Item/shutil.move), NEVER copy.** The archive folder name matches the **old (source) file's language**, not the new one (a Chinese-named old file → the Chinese archive folder; an English-named old file → `history/`; `.refer` → the Chinese refer folder or `refer/`).
 
 ### Flow Control
 
@@ -133,6 +136,7 @@ Same logic, one level deeper:
 | 9 | **Pass AI context as flags**: when invoking `naming.py`, supply the context the AI identified from its session — `--author <real author>`, `--root <explicit root>` (persisted when config empty), and `--context-root <inferred root>` (session-inferred, never persisted). Root resolution is 4-tier: config > explicit root > context root > fallback. The static config always wins over an explicit/context root for the **root** itself; user highest priority applies to the **L1/L2 save directory**. Never use these flags to override an explicit config value. |
 | 10 | **User save location is highest priority**: if the user explicitly names an L1/L2 (or a specific path), it overrides config-tree matching. This does NOT override an already-configured root (root follows its own 4-tier chain). |
 | 11 | **Per-invocation additive sync (no delete)**: on every call, if a root is configured (source ≠ `default`), the config tree is additively synced from disk — new on-disk L1/L2 dirs are added to config; config entries missing on disk are NEVER removed. Deletions are not auto-pruned. |
+| 12 | **Version bump is a deterministic chain, never a manual edit**: on `modify`, the AI MUST (1) compute the next version by calling `naming.py bump <existing_full_filename> <major\|minor\|patch>`, then (2) pass that exact version to `naming.py generate --version <x.y.z>`. Never hand-edit or guess the version. This guarantees `generate` detects the old same-document file at `save_path` and auto-archives (moves) it **before** writing the new version — eliminating in-place overwrite and manual-orchestration misses. |
 
 ---
 
@@ -163,9 +167,11 @@ User: "Create a doc about WorkBuddy shortcuts"  (no type given)
 ```
 User: "Update the naming spec doc"
 → Phase 1: type match from existing filename
-→ Phase 2: bump version → v1.0.0 → v1.1.0
-→ Phase 3: archive old version to the language-matched folder (the Chinese archive folder or `history/`)
-→ Deliver: new filename + archive path
+→ Phase 2 (bump, deterministic): naming.py bump "规范_文档命名规范_20260718_v1.0.0_Hawk.md" minor → v1.1.0
+→ Phase 2 (generate, chained): naming.py generate "文档命名规范" md --type 规范 --author Hawk --version 1.1.0
+   • generate detects the SAME-DOC old v1.0.0 at save_path → MOVEs it to 历史版本/ (archive_path returned)
+   • new version is written only after the old is moved — never overwrites in place
+→ Deliver: new filename + save_path + archive_path
 ```
 
 ### User specifies the storage directory (highest priority)
@@ -206,30 +212,3 @@ Return JSON with: name, type, title, date, version, author, ext, save_path, arch
 1. Always return structured JSON, never plain text
 2. Archive confirmation must include both old and new paths
 3. Extension validation failure returns error with allowed list
-
----
-
-## Reference Documents
-
-| Document | Purpose | When to Load |
-|----------|---------|--------------|
-| `references/rules.md` | Naming format, field definitions, version policy | Always |
-| `references/workspace.md` | Directory-tree **schema, type resolution & numbering convention** | Always |
-| `references/file-generation.md` | Filename generation and save path | Phase 2 |
-| `references/file-archive.md` | Old version archive and suffix routing | Phase 3 |
-| `references/self_checklist.md` | Quality self-checklist (P0/P1/P2) | Before delivery |
-
----
-
-## FAQ
-
-**Q: What happens if the extension is not in the whitelist?**
-Execution is refused immediately. The skill returns an error listing the allowed extensions. Adjust the `allowed_extensions` value in the configuration files.
-
-**Q: How do I add a new document category?**
-Just create a document and let the skill auto-detect the type, or tell it the type explicitly. On confirmation (or timeout) the skill creates the numbered L1/L2 directory and updates the tree automatically via `naming.py upsert`. You normally never edit the tree by hand.
-
-**Q: The directory tree looks out of sync — what do I do?**
-The skill keeps the tree in sync **automatically and additively** on every call: when a root is configured, any new L1/L2 folder on disk is added to the config tree (preserving its number); config entries that no longer exist on disk are never removed. You normally need no manual action. For an explicit one-off reconciliation, run `naming.py scan` (dry-run) / `naming.py scan --apply`; for a single new category use `naming.py upsert --l1 <type> [--l2 <type>]`. Hand-editing the config JSON is only for fixing parse errors.
-
-> **The tree tracks the real folders additively.** Each call adds newly-found disk directories into `directory_tree`; it never prunes config entries. `naming.py scan --apply` is the explicit full mirror when you want to force it.

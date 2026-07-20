@@ -1,9 +1,20 @@
 # File Archive
-**Applies to: `modify` only.**
+**Applies to: `modify` only** — i.e. the target `save_path` already contains a file of the same document with a *different* version.
 
-**Merged config** = the dict returned by `naming.py` `_load_config()` (merge of `config.json` + `config.local.json`). Archive / refer folder names are **not** config keys — they are fixed rules matched to the document's language.
+**MUST run BEFORE the new version is written.** The object of this step is the
+**original old file** that already exists on disk — move it into the archive
+folder first, then (or as part of) generating/writing the new version. Never let
+the new content overwrite the original in place.
 
-After File Generation creates the new versioned file, move the old file to a sub-directory based on its suffix.
+**Merged config** = the dict returned by `naming.py` `_load_config()` (merge of
+`config.json` + `config.local.json`). Archive / refer folder names are **not**
+config keys — they are fixed rules matched to the **old (source) file's**
+language (any CJK char in the old filename → Chinese folder, else English).
+
+`naming.py generate` performs this automatically: it detects the existing old
+version in the target directory and moves it **before** returning, populating
+`archive_path`. You normally do not archive by hand — but if you do, follow the
+Process below.
 
 ---
 

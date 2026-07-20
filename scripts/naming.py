@@ -20,12 +20,19 @@ Global context flags (accepted by any command; passed by the calling AI):
 
 Commands:
     generate  <title> <ext> [--type <type>] [--author <author>]
-              [--date YYYYMMDD] [--suffix final|refer] [--l2 <subtype>]
+              [--date YYYYMMDD] [--version X.Y.Z] [--suffix final|refer]
+              [--l2 <subtype>]
                                            # resolve type (3-tier: config match
                                            # > AI define > language default),
                                            # auto-upsert the L1 (and optional
                                            # L2) into config + disk, return
-                                           # save_path/l1/l2
+                                           # save_path/l1/l2; if an existing
+                                           # OLD version of the same document
+                                           # is found in the target dir it is
+                                           # MOVED to the language-matched
+                                           # archive folder and archive_path is
+                                           # returned (archive-then-generate;
+                                           # never an in-place overwrite)
     bump      <filename> <major|minor|patch>
     archive   <file_path>
     tree                                   # print directory_tree (runs the
@@ -60,7 +67,7 @@ _SKILL_ROOT = _skill_root()
 _L1_RESERVED_MAX = 98   # 98 Opinion / 99 Other are reserved L1 buckets
 _L2_RESERVED_MAX = 99   # 99 … is the reserved "Other" catch-all at L2
 _FALLBACK_TYPE = "其它"  # fallback L1 bucket (99 其它) — used when no type can be resolved
-_OTHER_ALIASES = {"other", "others", "其它", "其它"}  # aliases that map to the 99 entry
+_OTHER_ALIASES = {"other", "others", "Other", "其它"}  # aliases that map to the 99 entry
 
 # System user root directory per platform — the base under
 # which the default `DocumentSpace` folder is created by the skill. `Path.home()`
@@ -155,21 +162,6 @@ def _write_workspace_tree(tree: dict) -> bool:
         return True
     except OSError:
         return False
-
-
-def _ensure_dirs_on_disk(tree: dict) -> None:
-    """Create any L1/L2 directories declared in *tree* but missing on disk.
-
-    Used after bootstrapping an empty config tree from a baseline, so the
-    on-disk structure is materialized and subsequent runs read from config
-    (no re-creation needed). This only creates missing dirs; it never prunes.
-    """
-    root = Path(_resolve_workspace_root()["root"])
-    for l1k, l1v in tree.items():
-        l1p = root / str(l1v.get("name", l1k))
-        l1p.mkdir(parents=True, exist_ok=True)
-        for l2k, l2v in (l1v.get("sub") or {}).items():
-            (l1p / str(l2v.get("name", l2k))).mkdir(parents=True, exist_ok=True)
 
 
 def _sync_tree_additive() -> None:
@@ -280,7 +272,7 @@ def _allowed_extensions() -> list[str]:
     exts = _config.get("allowed_extensions")
     if isinstance(exts, list) and exts:
         return [e.lower().lstrip(".") for e in exts if isinstance(e, str)]
-    return ["md", "pptx", "xlsx", "docx", "pdf", "png", "mp4", "mp3"]
+    return list(_DEFAULT_ALLOWED)
 
 
 # =============================================================================
@@ -501,11 +493,17 @@ def generate_name(
     author: str = "",
     date_str: str = "",
     suffix: str = "",
+    version: str = "",
 ) -> dict:
     """Generate a compliant filename for a **new** document. No disk I/O.
 
+    `version` is optional: pass an explicit semver (e.g. "1.1.0") to generate a
+    new version of an existing document (used after `bump` in the modify flow);
+    omit it for a fresh v1.0.0.
+
     Returns: {"name", "type", "title", "date", "version", "suffix", "author", "ext"}
-    Raises ValueError if extension not in allowed_extensions whitelist.
+    Raises ValueError if extension not in allowed_extensions whitelist, or if a
+    provided `version` is not valid semver (X.Y.Z).
     """
     e = ext.lstrip(".").lower()
     allowed = _allowed_extensions()
@@ -515,11 +513,19 @@ def generate_name(
             f"Refusing execution — hard gate validation failed."
         )
 
+    if version:
+        if not re.fullmatch(r"\d+\.\d+\.\d+", version.strip()):
+            raise ValueError(
+                f"Invalid version '{version}'. Expected semver X.Y.Z (e.g. 1.1.0)."
+            )
+        v = version.strip()
+    else:
+        v = "1.0.0"
+
     prefix = file_type.strip() or _FALLBACK_TYPE
     t = _sanitize(title)
     d = date_str or date.today().strftime("%Y%m%d")
     a = _resolve_author(author)
-    v = "1.0.0"
     s = f".{suffix}" if suffix in ("final", "refer") else ""
 
     name = f"{prefix}_{t}_{d}_v{v}{s}_{a}.{e}"
@@ -844,15 +850,16 @@ def _cmd_generate() -> None:
     if len(sys.argv) < 4:
         _err("Usage: naming.py generate <title> <ext> "
              "--type <type> --author <author> [--date YYYYMMDD] "
-             "[--suffix final|refer] [--l2 <subtype>]")
+             "[--version X.Y.Z] [--suffix final|refer] [--l2 <subtype>]")
 
     _ensure_tree()  # additive disk->config sync (config -> disk additions)
     opts = _parse_flags(sys.argv[4:], {
-        "--type":   "file_type",
-        "--author": "author",
-        "--date":   "date_str",
-        "--suffix": "suffix",
-        "--l2":     "l2",
+        "--type":    "file_type",
+        "--author":  "author",
+        "--date":    "date_str",
+        "--version": "version",
+        "--suffix":  "suffix",
+        "--l2":      "l2",
     })
 
     title = sys.argv[2]
@@ -887,6 +894,7 @@ def _cmd_generate() -> None:
             opts.get("author", ""),
             opts.get("date_str", ""),
             opts.get("suffix", ""),
+            opts.get("version", ""),
         )
     except ValueError as e:
         _err(str(e))
@@ -894,6 +902,39 @@ def _cmd_generate() -> None:
     result["save_path"] = str(save_path)
     result["l1"] = ups["l1"]
     result["l2"] = ups["l2"]
+
+    # --- Auto-archive any existing OLD version of the SAME document ---------
+    # The skill workflow writes the freshly-generated file to save_path right
+    # after this call. To guarantee the "archive-then-generate" order (never an
+    # in-place overwrite), we MOVE every pre-existing file matching the same
+    # {type}_{title}_..._{author}.{ext} (a *different* version) into the
+    # language-matched archive folder BEFORE the new file is written. A pure
+    # create (no matching old file) is unaffected; archive_old_version() also
+    # honours the suffix rules (.refer -> refer folder, .final -> not moved).
+    new_parsed = parse_filename(result["name"])
+    if new_parsed:
+        archived = []
+        for f in list(save_path.iterdir()):
+            if not f.is_file() or f.name == result["name"]:
+                continue
+            p = parse_filename(f.name)
+            if not p:
+                continue
+            same_doc = (
+                p["type"] == new_parsed["type"]
+                and p["title"] == new_parsed["title"]
+                and p["author"] == new_parsed["author"]
+                and p["ext"] == new_parsed["ext"]
+                and p["suffix"] == new_parsed["suffix"]
+                and p["version"] != new_parsed["version"]
+            )
+            if same_doc:
+                dest = archive_old_version(f)
+                if dest:
+                    archived.append(str(dest))
+        if archived:
+            result["archive_path"] = archived[0] if len(archived) == 1 else archived
+
     print(json.dumps(result, ensure_ascii=False))
 
 
