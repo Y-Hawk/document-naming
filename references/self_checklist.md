@@ -56,6 +56,9 @@ Run after filename generation and before archiving. P0 must pass before output.
   - **P0**: `generate` returned no `archive_path` on a `modify` (old same-doc file still in the original directory) → this is an in-place overwrite; refuse delivery, run archive first
   - **P1**: `generate` was called without `--version` on a `modify` → the version is unchained from `bump`; re-run the `bump → generate --version` chain
   - **P2**: `bump` scope (major/minor/patch) mismatched the actual change → suggest the correct scope
+- [ ] **No orphan `bump` + in-place edit (P0 gate)**: on `modify`, the AI MUST complete the full `bump → generate --version → Write new content to returned save_path` chain. `bump` alone computes only a version string — it performs NO disk I/O (no archive, no write). The archive step lives inside `generate`, so **skipping `generate` and instead `Edit`-ing the existing file in place leaves the filename at the OLD version while content changes silently** — this is a silent in-place overwrite masquerading as a version bump.
+  - **P0**: a `modify` where `bump` was run but `generate --version` was never called, and the new content was written via in-place `Edit`/`Write` to the OLD filename → reject; run the full chain, then `Write` the new content to the `save_path`/`name` that `generate` returned (a different filename than the old one)
+  - **P0**: after delivery, the old-version filename still exists in the original directory AND no `archive_path` was returned → the file was never archived; refuse, run `generate` (which auto-archives) before writing
 
 ### 5. Archive
 
