@@ -3,6 +3,7 @@ name: document-naming
 description: >
   Document naming, file generation, version management and archiving. Triggers: create, modify, generate, or any document creation/modification. 触发词：修改文档、创建文档、生成文件、版本管理、文件归档。
 agent_created: true
+version: 1.0.1
 ---
 
 # Document Naming

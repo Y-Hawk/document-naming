@@ -141,7 +141,8 @@ document-naming/
 
 ## Version History
 
-- **v1.0.0** (2026-07-20) — Skill consolidated: 4-tier workspace-root resolution (config → explicit `--root` persisted → `--context-root` session-inferred → `DocumentSpace` fallback), 3-tier type resolution (config match → AI define → language-adapted default `其它`/`Other`), per-invocation additive tree sync (no delete), dual JSON config (`config.json` baseline + `config.local.json` machine-local), and deterministic `bump → generate --version` modify chain with automatic old-version archiving (`generate` moves the prior same-document version before writing the new one, returning `archive_path`).
+- **v1.0.1** (2026-07-24) — skill-optimizer 六支柱复检：补回 SKILL.md `version:` 字段（此前被多行 `description` 吞掉，真实基线为 v1.0.0）；`self_checklist.md` §6 新增约束 #3 落地自检项（运行时写入仅落 `config.local.json`，基线 `config.json` 不可变）。能力集与约束不变。
+- **v1.0.0** (2026-07-20) — Skill consolidated: 4-tier workspace-root resolution (config → explicit `--root` persisted → `--context-root` session-inferred → `DocumentSpace` fallback), 3-tier type resolution (config match → AI define → language-adapted default `其它`/`Other`), per-invocation additive tree sync (no delete), dual JSON config (`config.json` baseline + `config.local.json` machine-local`), and deterministic `bump → generate --version` modify chain with automatic old-version archiving (`generate` moves the prior same-document version before writing the new one, returning `archive_path`).
 
 ## License
 

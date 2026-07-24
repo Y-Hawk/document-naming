@@ -78,6 +78,8 @@ Run after filename generation and before archiving. P0 must pass before output.
   - **P0**: both `config.json` and `config.local.json` missing/unparseable → error with guidance (soft-fail to `{}` per file is tolerated)
   - **P1**: `directory_tree` value in the merged config unparseable → fix or rebuild it in `config.local.json`
   - **P2**: directory created but not synced to `config.local.json` → run `naming.py upsert` to sync
+- [ ] **Baseline `config.json` is never written by the script (constraint #3)**: all runtime tree/root writes land in `config.local.json` only; `config.json` stays the immutable baseline (local override wins on merge)
+  - **P2**: a runtime write targeted `config.json` (or it changed during a session) → revert the change and route the write to `config.local.json` (key-level override)
 - [ ] User-specified save location takes highest priority (SKILL.md constraint #10): an explicit user L1/L2 (or full path) overrides config-tree matching, but does NOT override an already-configured root (root follows its own 4-tier chain)
   - **P1**: user explicitly named an L1/L2/path but config-tree matching silently redirected the file elsewhere → honor the user location, then `upsert` it into the tree
   - **P2**: user-specified location was treated as a new root instead of a save directory → keep the configured root; apply the user choice only to the save directory
